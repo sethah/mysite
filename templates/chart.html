@@ -1,0 +1,93 @@
+{% macro google_chart_column(data, options, formatters=[], chartid='') -%}
+    <script type="text/javascript">
+
+      // Load the Visualization API and the piechart package.
+      google.load('visualization', '1.0', {'packages':['corechart']});
+
+      // Set a callback to run when the Google Visualization API is loaded.
+      google.setOnLoadCallback(drawChart);
+
+      // Callback that creates and populates a data table,
+      // instantiates the chart, passes in the data and
+      // draws it.
+
+      function drawChart() {
+
+        // Create the data table.
+        var data = google.visualization.arrayToDataTable({{ data|safe }});
+
+        //document.write(l);
+        {% if formatters|length > 0 %}
+            {% for f in formatters %}
+                var formatter = new google.visualization.NumberFormat(
+                      {pattern:"{{ f[0] }}" });
+                  formatter.format(data, {{ f[1] }});
+            {% endfor %}
+        {% endif %}
+        // Set chart options
+        var options = {{ options|safe }}
+
+        // Instantiate and draw our chart, passing in some options.
+        var chart = new google.visualization.ColumnChart(document.getElementById("{{ chartid }}"));
+        chart.draw(data, options);
+      }
+    </script>
+{%- endmacro %}
+{% macro google_chart_diff_pie(data1, data2, options, formatters=[], chartid='') -%}
+    <script type="text/javascript">
+
+      // Load the Visualization API and the piechart package.
+      google.load('visualization', '1.0', {'packages':['corechart']});
+
+      // Set a callback to run when the Google Visualization API is loaded.
+      google.setOnLoadCallback(drawChart);
+
+      // Callback that creates and populates a data table,
+      // instantiates the chart, passes in the data and
+      // draws it.
+
+      function drawChart() {
+
+        var oldData = google.visualization.arrayToDataTable({{ data1|safe }});
+
+        var newData = google.visualization.arrayToDataTable({{ data2|safe }});
+
+        var options = {{ options|safe }}
+
+        //var chartBefore = new google.visualization.PieChart(document.getElementById('piechart_before'));
+        //var chartAfter = new google.visualization.PieChart(document.getElementById('piechart_after'));
+        var chartDiff = new google.visualization.PieChart(document.getElementById("{{ chartid }}"));
+
+        //chartBefore.draw(oldData, options);
+        //chartAfter.draw(newData, options);
+
+        var diffData = chartDiff.computeDiff(oldData, newData);
+        chartDiff.draw(diffData, options);
+      }
+    </script>
+{%- endmacro %}
+{% macro google_chart_line(data, options, chartid='') -%}
+    <script type="text/javascript">
+
+      // Load the Visualization API and the piechart package.
+      google.load('visualization', '1.0', {'packages':['corechart']});
+
+      // Set a callback to run when the Google Visualization API is loaded.
+      google.setOnLoadCallback(drawChart);
+
+      // Callback that creates and populates a data table,
+      // instantiates the chart, passes in the data and
+      // draws it.
+      function drawChart() {
+
+        // Create the data table.
+        var data = new google.visualization.arrayToDataTable({{ data|safe }});
+
+        // Set chart options
+        var options = {{ options|safe }}
+        // Instantiate and draw our chart, passing in some options.
+        var chart = new google.visualization.LineChart(document.getElementById("{{ chartid }}"));
+        chart.draw(data, options);
+      }
+    </script>
+{%- endmacro %}

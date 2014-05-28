@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% set active_page_main = "teams" %}
+{% block header %}
+{% set navigation_bar = [
+    ('teams.roster', 'roster', 'Roster'),
+    ('teams.schedule', 'schedule', 'Schedule'),
+    ('teams.points', 'points', 'Stats')
+] -%}
+
+{% set active_page = active_page_team|default('schedule') -%}
+    <div class="tabbable">
+
+        <ul class="nav nav-tabs">
+            {% for href, id, caption in navigation_bar %}
+                <li{% if id == active_page %} class="active"{% endif %}><a href="{{ url_for(href|e,the_team = team) }}">{{ caption|e }}</a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endblock %}
+{% block content %}{% endblock %}

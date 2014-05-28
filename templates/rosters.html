@@ -1,0 +1,36 @@
+{% extends "teams_header.html" %}
+{% set active_page_team = "roster" %}
+{% block content %}
+
+{%if no_data %}
+    <h3>Site under construction</h3>
+{% else %}
+    <table>
+        <thead>
+        {% for hdr in hdrs %}
+          <th>{{ hdr }}</th>
+        {% endfor %}
+        </thead>
+        <tbody>
+        {% for d in data %}
+        <tr>
+            {% for key in key_list %}
+                <td>{{ d[key] }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+<script type="text/javascript" charset="utf-8">
+      $(document).ready(function() {
+        $("table").tablecloth({
+          theme: "stats",
+          striped: true,
+          sortable: true,
+          condensed: true,
+          clean: true
+        });
+      });
+    </script>
+{% endblock %}

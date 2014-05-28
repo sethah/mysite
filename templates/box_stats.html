@@ -1,0 +1,101 @@
+{% extends "game_header.html" %}
+{% block content %}
+
+<table class="tablecloth">
+    <thead>
+    {% for hdr in hdrs %}
+        {% if hdr == 'FGM' %}
+            <th>{{ hdr+'-A'  }}</th>
+        {% elif hdr == 'FTM' %}
+            <th>{{ hdr+'-A'   }}</td>
+        {% elif hdr == '3PM' %}
+            <th>{{ hdr+'-A'  }}</th>
+        {% else %}
+            <th>{{ hdr }}</th>
+        {% endif %}
+    {% endfor %}
+    </thead>
+    <tbody>
+    {% for d in home_data %}
+        <tr>
+            {% for key in key_list %}
+                {% if key == 'fgm' %}
+                    <td>{{ d.fgm|string+'-'+d.fga|string }}</td>
+                {% elif key == 'ftm' %}
+                    <td>{{ d.ftm|string +'-'+d.fta|string  }}</td>
+                {% elif key == 'tpm' %}
+                    <td>{{ d.tpm|string +'-'+d.tpa|string  }}</td>
+                {% else %}
+                    <td>{{ d[key] }}</td>
+                {% endif %}
+            {% endfor %}
+        </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot class="table-total">
+        <tr>
+            {% for key in key_list %}
+                {% if key == 'name' %}
+                    <td><a href="{{ url_for('teams.schedule', the_team = home_team_obj.statsheet) }}">{{ home_team_box[key] }}</a></td>
+                {% else %}
+                    <td>{{ home_team_box[key] }}</td>
+                {% endif %}
+            {% endfor %}
+        </tr>
+    </tfoot>
+</table>
+<table class="tablecloth">
+    <thead>
+    {% for hdr in hdrs %}
+        {% if hdr == 'FGM' %}
+            <th>{{ hdr+'-A'  }}</th>
+        {% elif hdr == 'FTM' %}
+            <th>{{ hdr+'-A'   }}</td>
+        {% elif hdr == '3PM' %}
+            <th>{{ hdr+'-A'  }}</th>
+        {% else %}
+            <th>{{ hdr }}</th>
+        {% endif %}
+    {% endfor %}
+    </thead>
+    <tbody>
+    {% for d in away_data %}
+        <tr>
+            {% for key in key_list %}
+                {% if key == 'fgm' %}
+                    <td>{{ d.fgm|string+'-'+d.fga|string }}</td>
+                {% elif key == 'ftm' %}
+                    <td>{{ d.ftm|string +'-'+d.fta|string  }}</td>
+                {% elif key == 'tpm' %}
+                    <td>{{ d.tpm|string +'-'+d.tpa|string  }}</td>
+                {% else %}
+                    <td>{{ d[key] }}</td>
+                {% endif %}
+            {% endfor %}
+        </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot class="table-total">
+        <tr>
+            {% for key in key_list %}
+                {% if key == 'name' %}
+                    <td><a href="{{ url_for('teams.schedule', the_team = away_team_obj.statsheet) }}">{{ away_team_box[key] }}</a></td>
+                {% else %}
+                    <td>{{ away_team_box[key] }}</td>
+                {% endif %}
+            {% endfor %}
+        </tr>
+    </tfoot>
+</table>
+<script type="text/javascript" charset="utf-8">
+      $(document).ready(function() {
+        $("table").tablecloth({
+          theme: "stats",
+          striped: true,
+          sortable: true,
+          condensed: true,
+          clean: true
+        });
+      });
+    </script>
+{% endblock %}

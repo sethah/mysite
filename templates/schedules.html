@@ -1,0 +1,44 @@
+{% extends "teams_header.html" %}
+{% block content %}
+
+
+<table>
+    <thead>
+    {% for hdr in hdrs %}
+      <th>{{ hdr }}</th>
+    {% endfor %}
+    </thead>
+    <tbody>
+    {% if no_data %}
+        <h3>No games were found for this team</h3>
+    {% else %}
+        {% for d in data %}
+        <tr>
+            {% for key in key_list %}
+                {% if key == 'outcome' %}
+                    <td>{{ d[key]+' | ' }}<a href="{{ url_for('game.box_stats', the_month = d.date.split('-')[0], the_day = d.date.split('-')[1], the_year = d.date.split('-')[2], game_string = d.away_team_link+'@'+d.home_team_link)}}">Box Score</a></td>
+                {% elif key == 'home_team' %}
+                    <td><a href="{{ url_for('teams.schedule', the_team = d.home_team_link)}}">{{ d[key] }}</a></td>
+                {% elif key == 'away_team' %}
+                    <td><a href="{{ url_for('teams.schedule', the_team = d.away_team_link)}}">{{ d[key] }}</a></td>
+                {% else %}
+                    <td>{{ d[key] }}</td>
+                {% endif %}
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    {% endif %}
+    </tbody>
+    </table>
+<script type="text/javascript" charset="utf-8">
+      $(document).ready(function() {
+        $("table").tablecloth({
+          theme: "stats",
+          striped: true,
+          sortable: true,
+          condensed: true,
+          clean: true
+        });
+      });
+    </script>
+{% endblock %}

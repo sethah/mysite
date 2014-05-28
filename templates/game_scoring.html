@@ -1,0 +1,37 @@
+{% extends "game_header.html" %}
+{% set active_page_game = "scoring" %}
+{% from "chart.html" import google_chart_line, google_chart_column, google_chart_diff_pie %}
+{% block content %}
+<body>
+    {% if no_game == True %}
+        <h5>No game was found!</h5>
+    {% else %}
+        {% for chart in column_charts %}
+            {{ google_chart_column(chart['data']|safe, chart['options'],formatters = chart['formatters'], chartid=chart['id']|safe) }}
+        {% endfor %}
+
+        {% for chart in pie_diff_charts %}
+            {{ google_chart_diff_pie(chart['data1']|safe,chart['data2']|safe, chart['options'], chartid=chart['id']|safe) }}
+        {% endfor %}
+
+        {% for chart in line_charts %}
+            {{ google_chart_line(chart['data']|safe,chart['options'],chartid=chart['id']|safe) }}
+        {% endfor %}
+
+        <div class="chart-div">
+            <h5>Scoring by Game Time</h5>
+            <div id="{{ chart_ids['score_time_chart'] }}" class="std-chart" style="display:inline-block; width:45%; height:300px;"></div>
+            <div id="{{ chart_ids['diff_chart'] }}" class="std-chart" style="display:inline-block; width:45%; height:300px;"></div>
+        </div>
+        <div class="chart-div">
+            <h5>Scoring by Possession Time</h5>
+            <div id="{{ chart_ids['poss_chart_home'] }}" class="std-chart" style="display:inline-block; width:45%; height:300px;"></div>
+            <div id="{{ chart_ids['poss_chart_away'] }}" class="std-chart" style="display:inline-block; width:45%; height:300px;"></div>
+        </div>
+        <div class="chart-div">
+            <h5>Points Breakdown by Type</h5>
+            <div id="{{ chart_ids['shot_type_chart'] }}" class="std-chart" style="display:inline-block; width:45%; height:300px;"></div>
+        </div>
+    {% endif %}
+  </body>
+{% endblock %}

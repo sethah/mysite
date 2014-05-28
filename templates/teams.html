@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% set active_page_main = "teams" %}
+{% block content %}
+    {% if page_header %}
+    <h1>{{page_header}} - Stats</h1>
+    {% else %}
+    <h1>NCAA Division I Teams</h1>
+    {% endif %}
+<div class="nav nav-tabs dropdown">
+
+    <a class="dropdown-toggle" data-toggle="dropdown" href="#">Select Conference
+      <b class="caret"></b></a> <!--Here-->
+
+  <ul class="dropdown-menu scrollable-menu" role="menu" aria-labelledby="dLabel">
+    {% for conf in conferences %}
+      <li><a tabindex="-1" href="{{ url_for('teams.teams', conference = conf) }}">{{ conf }}</a></li>
+    {% endfor %}
+  </ul>
+</div>
+{% if no_data %}
+    <h3>No teams were found</h3>
+{% else %}
+    <div class="pager">
+    <table>
+        <thead>
+        {% for hdr in hdrs %}
+          <th>{{ hdr }}</th>
+        {% endfor %}
+        </thead>
+        <tbody>
+        {% for d in data %}
+        <tr>
+            {% for key in key_list %}
+                {% if key == 'espn_name' %}
+                    <td><a href="{{ url_for('teams.schedule', the_team = d.statsheet) }}">{{ d[key] }}</a></td>
+                {% elif key == 'conference' %}
+                    <td><a href="{{ url_for('teams.teams', conference = d.conference) }}">{{ d[key] }}</a></td>
+                {% else %}
+                    <td>{{ d[key] }}</td>
+                {% endif %}
+            {% endfor %}
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+{% endif %}
+<script type="text/javascript" charset="utf-8">
+      $(document).ready(function() {
+        $("table").tablecloth({
+          theme: "stats",
+          striped: true,
+          sortable: true,
+          condensed: true,
+          clean: true
+        });
+      });
+    </script>
+{% endblock %}
