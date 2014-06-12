@@ -11,12 +11,16 @@ mod = Blueprint('main', __name__)
 @mod.route('/')
 @mod.route('/index')
 def index():
-    return render_template('index.html')
+    q = models.User.query.all()
+    return str(len(q))
+    #return render_template('index.html')
 
 @mod.route('/alembic')
 def sql_test():
-    users = models.User.query.all()
-    
+    users = models.user.query.all()
+    ulist = []
+    for user in users:
+        ulist.append(user.name)
     return str(len(users))
 
 @mod.app_errorhandler(404)

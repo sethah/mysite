@@ -9,6 +9,7 @@ from logging.config import fileConfig
 
 from mysite import app
 from mysite import db
+from mysite import models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

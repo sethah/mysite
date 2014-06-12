@@ -1,6 +1,4 @@
 from flask import render_template, flash, redirect, session, url_for, request, g, send_file, Blueprint
-from flask.ext.login import login_user, logout_user, current_user, login_required
-#from mysite import db, lm, oid
 from forms import LoginForm
 from mysite import models
 import chart_functions as cf

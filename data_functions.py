@@ -4,9 +4,6 @@ from flask import flash
 from mysite import models
 from sqlalchemy import and_, or_
 
-def myround(x, base=5):
-    return int(base * round(float(x)/base))
-
 def myround(num, divisor, round_type = 'down'):
     if round_type == 'down':
         rounded = num - (num%divisor)
