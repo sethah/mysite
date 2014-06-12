@@ -83,6 +83,9 @@ class game(db.Model):
     home_team = db.Column(db.String(100))
     away_team = db.Column(db.String(100))
     home_outcome = db.Column(db.String(1))
+    home_score = db.Column(db.Integer)
+    away_score = db.Column(db.Integer)
+    neutral_site = db.Column(db.Boolean)
     date = db.Column(db.DateTime)
     pbp_stats = db.relationship('pbp_stat', backref='game')
 
@@ -120,6 +123,7 @@ class box_stat(db.Model):
 
 
 class pbp_stat(db.Model):
+    #TODO: decrease size by using calculated values
     __tablename__ = 'pbp'
     id = db.Column(db.Integer, primary_key=True)
     gameid = db.Column(db.Integer, db.ForeignKey(game.id))
@@ -145,9 +149,6 @@ class pbp_stat(db.Model):
     possession_change = db.Column(db.Integer)
     home_fouls = db.Column(db.Float)
     away_fouls = db.Column(db.Float)
-    run = db.Column(db.Float)
-    run_end = db.Column(db.Float)
-    run_duration = db.Column(db.Float)
     second_chance = db.Column(db.Integer)
     to_points = db.Column(db.Integer)
     timeout_points = db.Column(db.Integer)
@@ -164,6 +165,7 @@ class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     nickname = db.Column(db.String(64), index=True, unique=True)
+    name = db.Column(db.String(64), index=True, unique=True)
     email = db.Column(db.String(120), index=True, unique=True)
     role = db.Column(db.SmallInteger, default=ROLE_USER)
 

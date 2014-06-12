@@ -9,4 +9,8 @@ if dir not in sys.path:
     sys.path.insert(0,dir)
 print sys.path
 from mysite import app
+
+#meta = MetaData()
+
+
 app.run(debug = True)
