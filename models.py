@@ -8,31 +8,24 @@ from bs4 import BeautifulSoup
 ROLE_USER = 0
 ROLE_ADMIN = 1
 
-class Page_Opener:
 
-    def __init__(self):
-        self.cookiejar = cookielib.LWPCookieJar()
-        self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cookiejar))
-        self.agent = 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; NeosBrowser; .NET CLR 1.1.4322; .NET CLR 2.0.50727)'
-        self.headers = {'User-Agent': self.agent}
+  
+class year(db.Model):
+    __tablename__ = 'year'
+    __bind_key__ = 'data_db'
+    id = db.Column(db.Integer, primary_key=True)
+    year = db.Column(db.Integer)
+    teams = db.relationship('team', backref='year', lazy='dynamic')
+    games = db.relationship('game', backref='year', lazy='dynamic')
+    
 
-    def open_and_soup(self, url, data=None):
-        req = urllib2.Request(url, data=None, headers=self.headers)
-        try:
-            response = self.opener.open(req)
-        except httplib.BadStatusLine as e:
-            print e, e.line
-        else:
-            print 'Success'
-
-        the_page = response.read()
-        soup = BeautifulSoup(the_page)
-        return soup
-
-
+    def __getitem__(self, key):
+        return getattr(self, key)
 class team(db.Model):
     __tablename__ = 'team'
+    __bind_key__ = 'data_db'
     id = db.Column(db.Integer, primary_key=True)
+    yearid = db.Column(db.Integer, db.ForeignKey(year.id))
     ncaaID = db.Column(db.String(140))
     statsheet = db.Column(db.String(140))
     ncaa = db.Column(db.String(140))
@@ -52,18 +45,38 @@ class team(db.Model):
     def __getitem__(self, key):
         return getattr(self, key)
 
-class raw_game:
-    def __init__(self):
-        self.rows = []
-        self.box_rows = []
-        self.home_team = ''
-        self.away_team = ''
-        self.date = ''
-        self.location = ''
-        self.home_outcome = ''
+class raw_game(db.Model):
+    __tablename__ = 'raw_game'
+    __bind_key__ = 'data_db'
+    id = db.Column(db.Integer, primary_key=True)
+    yearid = db.Column(db.Integer, db.ForeignKey(year.id))
+    home_team = db.Column(db.String(140))
+    away_team = db.Column(db.String(140))
+    date = db.Column(db.String(140))
+    location = db.Column(db.String(140))
+    home_outcome = db.Column(db.String(140))
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+class raw_play(db.Model):
+    __tablename__ = 'raw_play'
+    __bind_key__ = 'data_db'
+    id = db.Column(db.Integer, primary_key=True)
+    raw_game_id = db.Column(db.Integer, db.ForeignKey(raw_game.id))
+    soup_string = db.Column(db.String(1000))
+class raw_box(db.Model):
+    __tablename__ = 'raw_box'
+    __bind_key__ = 'data_db'
+    id = db.Column(db.Integer, primary_key=True)
+    raw_game_id = db.Column(db.Integer, db.ForeignKey(raw_game.id))
+    soup_string = db.Column(db.String(1000))
+    
+    
         
 class player(db.Model):
     __tablename__ = 'players'
+    __bind_key__ = 'data_db'
     id = db.Column(db.Integer, primary_key=True)
     teamid = db.Column(db.Integer, db.ForeignKey(team.id))
     name = db.Column(db.String(140))
@@ -79,7 +92,9 @@ class player(db.Model):
 
 class game(db.Model):
     __tablename__ = 'game'
+    __bind_key__ = 'data_db'
     id = db.Column(db.Integer, primary_key=True)
+    #yearid = db.Column(db.Integer, db.ForeignKey(year.id))
     home_team = db.Column(db.String(100))
     away_team = db.Column(db.String(100))
     home_outcome = db.Column(db.String(1))
@@ -94,7 +109,8 @@ class game(db.Model):
 
 
 class box_stat(db.Model):
-    __tablename__ = 'box'
+    __tablename__ = 'box_stat'
+    __bind_key__ = 'data_db'
     id = db.Column(db.Integer, primary_key=True)
     gameid = db.Column(db.Integer, db.ForeignKey(game.id))
     name = db.Column(db.String(140))
@@ -123,8 +139,8 @@ class box_stat(db.Model):
 
 
 class pbp_stat(db.Model):
-    #TODO: decrease size by using calculated values
     __tablename__ = 'pbp'
+    __bind_key__ = 'data_db'
     id = db.Column(db.Integer, primary_key=True)
     gameid = db.Column(db.Integer, db.ForeignKey(game.id))
     time = db.Column(db.Float)
@@ -163,6 +179,7 @@ class pbp_stat(db.Model):
 
 class User(db.Model):
     __tablename__ = 'users'
+    __bind_key__ = 'data_db'
     id = db.Column(db.Integer, primary_key=True)
     nickname = db.Column(db.String(64), index=True, unique=True)
     name = db.Column(db.String(64), index=True, unique=True)
@@ -174,3 +191,48 @@ class User(db.Model):
 
     def __repr__(self):
         return '<User %r>' % self.nickname
+class Page_Opener:
+
+    def __init__(self):
+        self.cookiejar = cookielib.LWPCookieJar()
+        self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cookiejar))
+        self.agent = 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; NeosBrowser; .NET CLR 1.1.4322; .NET CLR 2.0.50727)'
+        self.headers = {'User-Agent': self.agent}
+
+    def open_and_soup(self, url, data=None):
+        req = urllib2.Request(url, data=None, headers=self.headers)
+        try:
+            response = self.opener.open(req)
+        except httplib.BadStatusLine as e:
+            print e, e.line
+        else:
+            print 'Success'
+
+        the_page = response.read()
+        soup = BeautifulSoup(the_page)
+        return soup
+class raw_teams_year(db.Model):
+    __tablename__ = 'raw_teams_year'
+    __bind_key__ = 'all_teams_db'
+    id = db.Column(db.Integer, primary_key=True)
+    year = db.Column(db.Integer)
+    raw_teams = db.relationship('raw_team', backref='raw_teams_year', lazy='dynamic')
+    
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+class raw_team(db.Model):
+    __tablename__ = 'raw_teams'
+    __bind_key__ = 'all_teams_db'
+    id = db.Column(db.Integer, primary_key=True)
+    yearid = db.Column(db.Integer, db.ForeignKey(raw_teams_year.id))
+    ncaaID = db.Column(db.String(140))
+    statsheet = db.Column(db.String(140))
+    ncaa = db.Column(db.String(140))
+    espn_name = db.Column(db.String(140))
+    espn = db.Column(db.String(140))
+    cbs1 = db.Column(db.String(140))
+    cbs2 = db.Column(db.String(140))
+
+    def __getitem__(self, key):
+        return getattr(self, key) 

@@ -2,6 +2,7 @@ import os
 
 CSRF_ENABLED = True
 SECRET_KEY = 'you-will-never-guess'
+current_year = 2014
 
 OPENID_PROVIDERS = [
     { 'name': 'Google', 'url': 'https://www.google.com/accounts/o8/id' },
@@ -12,6 +13,13 @@ OPENID_PROVIDERS = [
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 
-SQLALCHEMY_DATABASE_URI = 'mysql://hendris:Hoo16sier@mysql.server/hendris$users'
+SQLALCHEMY_DATABASE_URI_DATA = 'mysql://hendris:Hoo16sier@mysql.server/hendris$data'
+SQLALCHEMY_DATABASE_URI_RAW = 'mysql://hendris:Hoo16sier@mysql.server/hendris$raw_data'
+SQLALCHEMY_DATABASE_URI_DATA = 'sqlite:///' + os.path.join(basedir, 'foo5.db')
+SQLALCHEMY_DATABASE_URI_TEAMS = 'sqlite:///' + os.path.join(basedir, 'raw_teams_'+str(current_year)+'.db')
+SQLALCHEMY_BINDS = {
+    'data_db' : SQLALCHEMY_DATABASE_URI_DATA,
+    'raw_data_db' : SQLALCHEMY_DATABASE_URI_DATA,
+    'all_teams_db' : SQLALCHEMY_DATABASE_URI_TEAMS}
 #SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(basedir, 'foo5.db')
 SQLALCHEMY_MIGRATE_REPO = os.path.join(basedir, 'db_repository')
