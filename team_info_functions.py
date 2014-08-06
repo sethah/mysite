@@ -110,8 +110,18 @@ def get_scoreboard_games(date_string):
 
     soup = lf.get_soup(scoreboard_url)
 
+    if soup == None:
+        #error getting the HTML
+        msg = "couldn't get HTML"
+        return None, None, None, msg
+
     #get the largest table on the page
     largest_table = get_largest_table(soup)
+
+    if largest_table == None:
+        #error getting table
+        msg = "couldn't get largest table"
+        return None, None, None, msg
 
     #iterate through tables in that table
     game_tables = largest_table.findAll('table')
@@ -120,7 +130,7 @@ def get_scoreboard_games(date_string):
     link_list = []
     box_link_list = []
     for game in game_tables:
-        #skip the larger table containers
+        #skip tables that contain tables
         if len(game.findAll('table')) != 0:
             continue
 
@@ -158,11 +168,10 @@ def get_scoreboard_games(date_string):
 
     if len(team_list) != len(link_list) or len(team_list) != len(box_link_list):
         #return none if the lists aren't equal for some reason
-        team_list = None
-        box_link_list = None
-        link_list = None
+        msg = "lists were uneven in length"
+        return None, None, None, msg
 
-    return team_list, box_link_list, link_list
+    return team_list, box_link_list, link_list, None
 def home_and_away_teams(soup,team1,team2):
     '''
     @Function: home_and_away_teams(soup,team1,team2)
@@ -176,10 +185,14 @@ def home_and_away_teams(soup,team1,team2):
     tds = hdr_rows[0].findAll('td')
 
     #the away team is the left column
-    if tds[1].get_text().strip() == team1 and tds[2].get_text().strip() == team2:
+    left_col = tds[1].get_text().strip()
+    right_col = tds[3].get_text().strip()
+    #print left_col, right_col,tds[0].get_text().strip(),tds[3].get_text().strip()
+    #print team1, team2
+    if left_col == team1 and right_col == team2:
         home_team = team1
         away_team = team2
-    elif tds[1].get_text().strip() == team2 and tds[2].get_text().strip() == team1:
+    elif left_col == team2 and right_col == team1:
         home_team = team2
         away_team = team1
     else:
@@ -235,55 +248,6 @@ def get_box_rows(soup):
     except:
         rows = None
     return rows
-def get_roster(teamID):
-    '''
-    @Function: get_roster(teamID)
-    @Author: S. Hendrickson 3/5/14
-    @Return: This function returns lists holding roster
-    information for a given team.
-    '''
-    link = 'http://stats.ncaa.org/team/roster/11540?org_id='+teamID
-    soup = lf.get_soup(link)
-    if soup == None:
-        return None
-    try:
-        body = soup.find('tbody')
-        rows = body.findAll('tr')
-    except:
-        #error in html
-        rows = []
-
-    first_names = []
-    last_names = []
-    heights = []
-    positions = []
-    pclasses = []
-    names = []
-    for row in rows:
-        tds = row.findAll('td')
-        if len(tds) > 6:
-            #TODO: does strip fail if get_text returns None?
-            name = tds[1].get_text().strip()
-            position = tds[2].get_text().strip()
-            height = tds[3].get_text().strip()
-            pclass = tds[4].get_text().strip()
-
-            try:
-                feet = height[0:height.find('-')]
-                inches = height[height.find('-')+1:len(height)]
-                height = int(feet)*12+int(inches)
-            except:
-                #error with height data
-                height = 0
-
-            positions.append(position)
-            heights.append(height)
-            pclasses.append(pclass)
-            name, first_name, last_name = convert_name_ncaa(name)
-            first_names.append(first_name)
-            last_names.append(last_name)
-            names.append(first_name+' '+last_name)
-    return first_names, last_names, names, positions, heights, pclasses
 def convert_name_ncaa(name):
     '''
     @Function: convert_name_ncaa(name)
@@ -300,39 +264,7 @@ def convert_name_ncaa(name):
         first_name = None
         name = None
     return name, first_name, last_name
-def store_rosters(teamIDs):
-    '''
-    @Function: store_rosters(teamIDs)
-    @Author: S. Hendrickson 3/5/14
-    @Return: This function stores a team's roster and other various info and
-    stores it in a database
-    '''
-    #TODO: error handling
 
-    for teamID in teamIDs:
-
-        #query for all players that belong to this team
-        q = models.player.query.join(models.team).filter(models.team.ncaaID==teamID).all()
-        the_team = get_team_param(teamID,'ncaaID')
-        #delete the players that exist
-        for plr in q:
-            print plr.name
-            db.session.delete(plr)
-
-        #call function to get the information
-        first_names, last_names, names, positions, heights, pclasses = get_roster(teamID)
-
-        #add the players fetched from the website
-        for j in range(len(first_names)):
-            plr = models.player()
-            plr = init_item(plr,first_name = first_names[j],last_name = last_names[j], name = names[j], position = positions[j],
-                                height = heights[j], pclass = pclasses[j])
-            the_team.players.append(plr)
-            print plr.name
-        db.session.add(the_team)
-        db.session.flush()
-        #sess.session.rollback()
-        db.session.commit()
 
 def get_ncaa_schedule_data(teamID):
     '''
@@ -344,8 +276,7 @@ def get_ncaa_schedule_data(teamID):
     #TODO: error handling
 
     link = 'http://stats.ncaa.org/team/index/11540?org_id='+teamID
-    po = c.Page_Opener()
-    soup = po.open_and_soup(link)
+    soup = lf.get_soup(link)
 
     #get the table that contains 'Schedule' in its first row
     tables = soup.findAll('table')
@@ -364,7 +295,6 @@ def get_ncaa_schedule_data(teamID):
     locations = []
     links = []
     games = []
-    real_locations = []
     box_links = []
     fmt =  '%m/%d/%Y'
     for row in rows:

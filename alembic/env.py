@@ -16,7 +16,7 @@ from mysite import models
 config = context.config
 
 # Overwrite the sqlalchemy.url in the alembic.ini file.
-config.set_main_option('sqlalchemy.url', app.config['SQLALCHEMY_DATABASE_URI'])
+config.set_main_option('sqlalchemy.url', app.config['SQLALCHEMY_DATABASE_URI_DATA'])
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

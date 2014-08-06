@@ -9,15 +9,16 @@ ROLE_USER = 0
 ROLE_ADMIN = 1
 
 
-  
+
 class year(db.Model):
     __tablename__ = 'year'
     __bind_key__ = 'data_db'
     id = db.Column(db.Integer, primary_key=True)
     year = db.Column(db.Integer)
-    teams = db.relationship('team', backref='year', lazy='dynamic')
-    games = db.relationship('game', backref='year', lazy='dynamic')
-    
+    teams = db.relationship('team', backref='year', lazy='dynamic',primaryjoin="team.yearid==year.id")
+    games = db.relationship('game', backref='year', lazy='dynamic',primaryjoin="game.yearid==year.id")
+    raw_games = db.relationship('raw_game', backref='year', lazy='dynamic',primaryjoin="raw_game.yearid==year.id")
+
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -53,8 +54,11 @@ class raw_game(db.Model):
     home_team = db.Column(db.String(140))
     away_team = db.Column(db.String(140))
     date = db.Column(db.String(140))
+    #TODO: don't need location
     location = db.Column(db.String(140))
     home_outcome = db.Column(db.String(140))
+    raw_box_stats = db.relationship('raw_box', backref='raw_game', lazy='dynamic',primaryjoin="raw_box.raw_game_id==raw_game.id")
+    raw_pbp_stats = db.relationship('raw_play', backref='raw_game', lazy='dynamic',primaryjoin="raw_play.raw_game_id==raw_game.id")
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -71,9 +75,9 @@ class raw_box(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     raw_game_id = db.Column(db.Integer, db.ForeignKey(raw_game.id))
     soup_string = db.Column(db.String(1000))
-    
-    
-        
+
+
+
 class player(db.Model):
     __tablename__ = 'players'
     __bind_key__ = 'data_db'
@@ -89,12 +93,17 @@ class player(db.Model):
     def __getitem__(self, key):
         return getattr(self, key)
 
+    def __repr__(self):
+        return '<%s %s %s %s>' % (
+            self.name, self.height, self.pclass,
+            self.position)
+
 
 class game(db.Model):
     __tablename__ = 'game'
     __bind_key__ = 'data_db'
     id = db.Column(db.Integer, primary_key=True)
-    #yearid = db.Column(db.Integer, db.ForeignKey(year.id))
+    yearid = db.Column(db.Integer, db.ForeignKey(year.id))
     home_team = db.Column(db.String(100))
     away_team = db.Column(db.String(100))
     home_outcome = db.Column(db.String(1))
@@ -102,7 +111,8 @@ class game(db.Model):
     away_score = db.Column(db.Integer)
     neutral_site = db.Column(db.Boolean)
     date = db.Column(db.DateTime)
-    pbp_stats = db.relationship('pbp_stat', backref='game')
+    pbp_stats = db.relationship('pbp_stat', backref='game', lazy='dynamic',primaryjoin="pbp_stat.gameid==game.id")
+    box_stats = db.relationship('box_stat', backref='game', lazy='dynamic',primaryjoin="box_stat.gameid==game.id")
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -144,7 +154,7 @@ class pbp_stat(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     gameid = db.Column(db.Integer, db.ForeignKey(game.id))
     time = db.Column(db.Float)
-    player = db.Column(db.String(140))
+    player = db.Column(db.String(140), default = "NA")
     stat_type = db.Column(db.String(70))
     teamID = db.Column(db.Integer)
     home_score = db.Column(db.Integer)
@@ -157,7 +167,7 @@ class pbp_stat(db.Model):
     worth = db.Column(db.Integer)
     and_one = db.Column(db.String(2))
     rebound_type = db.Column(db.Integer)
-    recipient = db.Column(db.Integer)
+    recipient = db.Column(db.String(140))
     assisted = db.Column(db.Integer)
     charge = db.Column(db.Integer)
     stolen = db.Column(db.Integer)
@@ -168,29 +178,16 @@ class pbp_stat(db.Model):
     second_chance = db.Column(db.Integer)
     to_points = db.Column(db.Integer)
     timeout_points = db.Column(db.Integer)
-    possession_time = db.Column(db.Integer)
+    possession_time = db.Column(db.Integer, default=-1)
     possession_time_adj = db.Column(db.Integer)
-    home_lineup = db.Column(db.String(300))
-    away_lineup = db.Column(db.String(300))
+    home_lineup = db.Column(db.String(300), default='')
+    away_lineup = db.Column(db.String(300), default='')
 
     def __getitem__(self, key):
         return getattr(self, key)
 
 
-class User(db.Model):
-    __tablename__ = 'users'
-    __bind_key__ = 'data_db'
-    id = db.Column(db.Integer, primary_key=True)
-    nickname = db.Column(db.String(64), index=True, unique=True)
-    name = db.Column(db.String(64), index=True, unique=True)
-    email = db.Column(db.String(120), index=True, unique=True)
-    role = db.Column(db.SmallInteger, default=ROLE_USER)
 
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __repr__(self):
-        return '<User %r>' % self.nickname
 class Page_Opener:
 
     def __init__(self):
@@ -217,7 +214,7 @@ class raw_teams_year(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     year = db.Column(db.Integer)
     raw_teams = db.relationship('raw_team', backref='raw_teams_year', lazy='dynamic')
-    
+
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -235,4 +232,4 @@ class raw_team(db.Model):
     cbs2 = db.Column(db.String(140))
 
     def __getitem__(self, key):
-        return getattr(self, key) 
+        return getattr(self, key)

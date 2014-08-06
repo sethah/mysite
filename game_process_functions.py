@@ -20,14 +20,14 @@ def get_play_by_play(home_team, away_team, date, rows, starters):
     play-by-play data. It turns the textual play descriptions into a parseable
     data table with a multitude of information for each play
     '''
-    
+
     #make a list to hold all the stat instancess
     st_list = []
     g = 0
-    
+
     #get the player names
-    
-    
+
+
 
     #PBP data not available if there are <100 rows
     if len(rows) > 100:
@@ -45,24 +45,25 @@ def get_play_by_play(home_team, away_team, date, rows, starters):
         #no play by play data available via statsheet OR espn
         pass
     g += 1
-    
+
     for stat in pbp_data:
         pos_sum = 0
-                
-        #create a row that has the stats in the same order as the headers
+
+        if stat.possession_time == None:
+            stat.possession_time = -1
         stat.possession_time = round(stat.possession_time)
         stat.possession_time_adj = round(stat.possession_time_adj)
-        
+
     return pbp_data
 def string_to_stats(string, names, last_names, first_names, teamID, source):
     '''
-    Function: string_to_stats(string, player_list, last_names, teamID, ESPN)
+    Function: string_to_stats(string, player_list, last_names, teamID, source)
     Author: S. Hendrickson 1/11/14
     Return: This function takes a textual description of a play and returns
     the player, stat type, and a stat tag. The stat tag is used to convey
     more information about some stat types.
     '''
-    
+
     string = string.replace('(','')
     string = string.replace(')','')
     string = string.upper()
@@ -76,7 +77,7 @@ def string_to_stats(string, names, last_names, first_names, teamID, source):
      'TURNOVER',
      'FOUL',
      'TIMEOUT']
-    
+
     if source == 'espn':
         #ESPN shot descriptions
         shot_list = ['THREE POINT',
@@ -101,7 +102,7 @@ def string_to_stats(string, names, last_names, first_names, teamID, source):
          '2-POINT',
          'DUNK',
          'TIP']
-        
+
     #shot types defined, these must be in corresponding order to the shot list
     ptag_list = ['3PM',
      '3PMS',
@@ -115,7 +116,7 @@ def string_to_stats(string, names, last_names, first_names, teamID, source):
      'DMS',
      'TIM',
      'TIMS']
-    
+
     player = 'NA'
     p = 0
     '''
@@ -126,17 +127,17 @@ def string_to_stats(string, names, last_names, first_names, teamID, source):
     for last_name in last_names:
         try:
             first_name = first_names[p]
-            
+
             #roman numerals screw stuff up
             if ' III' in last_name:
                 last_name = last_name.replace(' III','')
             elif ' II' in last_name:
                 last_name = last_name.replace(' II','')
-            
+
             #handle JR. and SR.
             last_name = last_name.replace('.','')
-            
-            
+
+
             if last_name.upper() in string:
                 #if there is only one player on the team with this last name and the last name is not a first name
                 if last_names.count(last_name) == 1 and len([name for name in first_names if last_name in name]) == 0:
@@ -152,7 +153,7 @@ def string_to_stats(string, names, last_names, first_names, teamID, source):
             #error with names
             p += 1
             continue
-            
+
         p += 1
 
     stat_type = ''
@@ -187,7 +188,7 @@ def string_to_stats(string, names, last_names, first_names, teamID, source):
                 stat_tag = ptag_list[i * 2 + 1]
                 break
             i = i + 1
-    
+
     elif stat_type == 'REBOUND':
         #assign stat tag a number to indicate the type of rebound
         if 'OFFENSIVE' in string:
@@ -215,27 +216,27 @@ def possession_change(pbp_data, i):
     return possession_change
 def get_row_data(row):
     '''
-    Function: get_row_data(row,ESPN)
+    Function: get_row_data(row)
     Author: S. Hendrickson 1/11/14
     Return: This function takes a play by play row and splits it up into
     two play strings (one of which should be empty), two scores, and a
     time.
     '''
     tds = row.findAll('td')
-    
+
 
     try:
         #get the time
         tTime = tds[0].get_text().encode('utf-8')
         tTime = tTime[0:5]
 
-        
+
         tPlay1 = tds[1].get_text().encode('utf-8')
         playID = 1
         #if there is text in the first column, then playID = 0, 1 otherwise
-        if len(tPlay1)>2: 
+        if len(tPlay1)>2:
             playID = 0
-            
+
         #convert score in form '22-23' to a score and opp score
         rawScore = tds[2].get_text().encode('utf-8')
         dash = rawScore.find('-')
@@ -252,7 +253,7 @@ def get_row_data(row):
         print 'bad tr string'
 
     return playID,tTime,tPlay1,tPlay2,tScore1,tScore2
-def basic_data_pbp(rows,home_team, away_team,source, starters):
+def basic_data_pbp(rows,home_team, away_team, starters):
     '''
     Function: basic_data_pbp(rows,player_names,source)
     Author: S. Hendrickson 1/11/14
@@ -262,9 +263,9 @@ def basic_data_pbp(rows,home_team, away_team,source, starters):
     '''
 
     i = 0
-    
+
     pbp_data = []
-    
+
     #query for all players on the home team, store in hnames
     q = models.player.query.join(models.team).filter(models.team.ncaaID==home_team).all()
     hlast_names = []
@@ -274,7 +275,7 @@ def basic_data_pbp(rows,home_team, away_team,source, starters):
         hlast_names.append(plr.last_name)
         hfirst_names.append(plr.first_name)
         hnames.append(plr.name)
-    
+
     #query for all players on the away team, store in anames
     q = models.player.query.join(models.team).filter(models.team.ncaaID==away_team).all()
     alast_names = []
@@ -284,34 +285,35 @@ def basic_data_pbp(rows,home_team, away_team,source, starters):
         alast_names.append(plr.last_name)
         afirst_names.append(plr.first_name)
         anames.append(plr.name)
-    
+
     #initialize lineups
     home_lineup = ''
     away_lineup = ''
     new_lineup_flag_home = True
     new_lineup_flag_away = True
-    
+
     #loop through all the rows
     for row in rows:
 
         st = models.pbp_stat()
-        
+
         #get the time, each team's score, and the text for each team's column
         try:
             bs_row = BeautifulSoup(row, "html.parser")
         except:
             #bad row string
             bs_row = ''
+
         playID,tTime,tPlay1,tPlay2,tScore1,tScore2 = get_row_data(bs_row)
 
         #teamID = 1 for the home team, 0 for away
         teamID = playID
-           
+
         #write the text string into tPlay
         tPlay = tPlay1
         if playID == 1:
             tPlay = tPlay2
-        
+
         #extract the type of play and player from the text string
         if playID == 1:
             names = hnames
@@ -322,13 +324,13 @@ def basic_data_pbp(rows,home_team, away_team,source, starters):
             last_names = alast_names
             first_names = afirst_names
 
-        player, stat_type, stat_tag = string_to_stats(tPlay, names, last_names, first_names, teamID, source)
-        
+        player, stat_type, stat_tag = string_to_stats(tPlay, names, last_names, first_names, teamID, 'ncaa')
+
 
         #skip dead ball rebounds
         if stat_type == 'REBOUND' and stat_tag < -1:
             continue
-        
+
         #add and delete players on substitutions
         if 'ENTERS' in tPlay.upper():
             if playID == 1:
@@ -347,33 +349,33 @@ def basic_data_pbp(rows,home_team, away_team,source, starters):
                     pbp_data = correct_lineup(pbp_data,player,i-1,'away')
                     pass
                 away_lineup = delete_from_lineup(away_lineup,player)
-            
+
         #if the row returned a valid stat type
         if stat_type:
             #assign lineups to current stat
             st.home_lineup = home_lineup
             st.away_lineup = away_lineup
-            
+
             #reset the new lineup flag as soon as there are 5 players in the lineup for the first time
             if new_lineup_flag_home and len(st.home_lineup.split(',')) >= 6:
                 #print tTime, home_lineup, tPlay
                 new_lineup_flag_home = False
             if new_lineup_flag_home and len(st.away_lineup.split(',')) >= 6:
                 new_lineup_flag_away = False
-                
+
             try:
                 #convert time string to a float
                 st.time = 20 - (float(tTime[0:tTime.find(':')]) + float(tTime[tTime.find(':') + 1:len(tTime)]) / 60)
             except:
                 #error converting time, skip this stat
                 continue
-            
-           
+
+
             #handle half transitions
             if (i != 0):
                 if (pbp_data[i - 1].time > st.time):
                     st.time = st.time + 20
-                    
+
                     #handles a weird glitch, there cannot be more than [five] minutes between a stat
                     if st.time - pbp_data[i-1].time > 5:
                         continue
@@ -396,41 +398,43 @@ def basic_data_pbp(rows,home_team, away_team,source, starters):
                 #if a half transition, add a 'HALF' stat to the data
                 if (st.time > 20) & (pbp_data[i - 1].time <= 20) | (st.time > 40) & (pbp_data[i - 1].time <= 40) | (st.time > 45) & (pbp_data[i - 1].time <= 45):
                     st.stat_type = 'HALF'
-                    
+
                     #store the time at first stat in half in a temp variable
                     tempTime = st.time
-    
+
                     #give the 'HALF' stat the necessary data
                     st.time = round(st.time, -1)
                     st.home_score = pbp_data[i - 1].home_score
                     st.away_score = pbp_data[i - 1].away_score
                     st.diff_score = pbp_data[i - 1].diff_score
                     st.possession = pbp_data[i - 1].possession
-                    
+
                     #handle possession change for the 'HALF' stat
                     if possession_change(pbp_data, i - 1):
                         pbp_data[i-1].possession_change = 1
                         st.possession = abs(pbp_data[i - 1].possession - 1)
                     #add the half stat
                     pbp_data.append(st)
-                    
+
                     #reset the lineups
                     away_lineup = ''
                     home_lineup = ''
                     new_lineup_flag_home = True
                     new_lineup_flag_away = True
-                    
+
                     #create new stat instance for this play
                     i = i + 1
                     st = models.pbp_stat()
+                    st.home_lineup = home_lineup
+                    st.away_lineup = away_lineup
                     #create a new stat to hold the current play and initialize it
                     st.time = tempTime
-            
+
             #assign play info
             st.player = player
             st.stat_type = stat_type
             st.teamID = teamID
-            
+
             #if the player wasn't in the lineup, add him
             if st.player not in st.home_lineup and st.teamID == 1 and st.player != 'NA':
                 st.add_to_lineup(st.player,'home')
@@ -441,7 +445,7 @@ def basic_data_pbp(rows,home_team, away_team,source, starters):
                 st.add_to_lineup(st.player,'away')
                 if new_lineup_flag_away and i != 0:
                     pbp_data = correct_lineup(pbp_data, st.player, i-1, 'away')
-                
+
             #assign score to the appropriate team
             st.home_score = tScore2
             st.away_score = tScore1
@@ -453,14 +457,14 @@ def basic_data_pbp(rows,home_team, away_team,source, starters):
                 st.point_type = stat_tag
                 st.result = 1
                 #shot missed
-                if 'MS' in stat_tag[-2:]: 
+                if 'MS' in stat_tag[-2:]:
                     st.result = 0
                 st.value = 2
                 #three pointer
-                if '3' in stat_tag: 
+                if '3' in stat_tag:
                     st.value = 3
                 #free throw
-                elif 'FT' in stat_tag: 
+                elif 'FT' in stat_tag:
                     st.value = 1
                     k = 1
                     #free throw was and1 if a fg was made at the same time
@@ -489,7 +493,7 @@ def basic_data_pbp(rows,home_team, away_team,source, starters):
                 else:
                     #flip the possession
                     st.possession = abs(teamID - 1)
-            
+
             elif stat_type == 'ASSIST':
                 #possession is with the team that made the assist
                 st.possession = teamID
@@ -499,7 +503,7 @@ def basic_data_pbp(rows,home_team, away_team,source, starters):
                 st.recipient = pbp_data[i - 1].player
                 st.point_type = pbp_data[i - 1].point_type
                 pbp_data[i - 1].assisted = 1
-                
+
             elif stat_type == 'FOUL':
                 st.possession = abs(teamID - 1)
                 if i != 0:
@@ -507,28 +511,28 @@ def basic_data_pbp(rows,home_team, away_team,source, starters):
                     if (pbp_data[i - 1].stat_type == 'TURNOVER') & (pbp_data[i - 1].time == st.time) & (pbp_data[i - 1].teamID == teamID):
                         st.possession = teamID
                         st.charge = 1
-                    
+
             elif stat_type == 'BLOCK':
                 #possession is with the team who did not do the blocking
                 st.possession = abs(teamID - 1)
-                
+
                 #make sure that this is not the first possession (should never be)
                 if i != 0:
                     if pbp_data[i - 1].value > 1:
                         #previous shot was blocked
                         pbp_data[i - 1].blocked = 1
-                        
+
             elif stat_type == 'TURNOVER':
                 #possession is with the team who turned it over
                 st.possession = teamID
-                
+
                 if i != 0:
                     #if the previous play was a foul by the same team at the same time as the current play
                     if (pbp_data[i - 1].stat_type == 'FOUL') & (pbp_data[i - 1].time == st.time) & (pbp_data[i - 1].teamID == teamID):
                         #offensive foul, so correct the possession on the previous play
                         pbp_data[i - 1].possession = st.possession
                         pbp_data[i - 1].charge = 1
-                        
+
             elif stat_type == 'STEAL':
                 #possession is with the team who did not do the stealing
                 st.possession = abs(teamID - 1)
@@ -536,14 +540,14 @@ def basic_data_pbp(rows,home_team, away_team,source, starters):
                 if i != 0:
                     if pbp_data[i - 1].stat_type == 'TURNOVER':
                         pbp_data[i - 1].stolen = 1
-                        
+
             i = i + 1
             pbp_data.append(st)
-            
+
             #give new lineups to the lineup variables
             home_lineup = st.home_lineup
             away_lineup = st.away_lineup
-            
+
     #append a 'HALF' stat to the end
     st = models.pbp_stat()
     st.stat_type = 'HALF'
@@ -569,16 +573,16 @@ def handle_funky_timeouts(pbp_data,N):
     '''
 
     for j in range(N):
-        if len(pbp_data[j].home_lineup.split(',')) != 6:
+        '''if len(pbp_data[j].home_lineup.split(',')) != 6:
             print pbp_data[j].home_lineup, pbp_data[j].time
         if pbp_data[j].result == None:
-            print pbp_data[j].result,pbp_data[j].value
+            print pbp_data[j].result,pbp_data[j].value'''
         k = 1
         if j != N:
             #k equals the number of consecutive timeouts
             while pbp_data[j+k].stat_type == 'TIMEOUT':
                 k = k + 1
-        
+
         if pbp_data[j].stat_type == 'TIMEOUT':
             #one timeout was called, then half
             if pbp_data[j+1].stat_type== 'HALF':
@@ -626,7 +630,7 @@ def post_process_pbp(pbp_data,N):
             and_one = 0
             #and_one_worth is used to assign points off <turnover,oreb,timeout>
             and_one_worth = 0
-            
+
             k = 0
             #iterate while the time is the same
             while pbp_data[j].time == pbp_data[j+k].time:
@@ -637,9 +641,9 @@ def post_process_pbp(pbp_data,N):
                     and_one = 1
                 k += 1
             #if no and1, then forget it
-            if and_one == 0: 
+            if and_one == 0:
                 and_one_worth = 0
-        
+
         elif (pbp_data[j].time != pbp_data[j-1].time) & (j != N):
             and_one = 0
             and_one_worth = 0
@@ -656,7 +660,7 @@ def post_process_pbp(pbp_data,N):
 
         #keep track of the free throw total points for use in "points off" variables
         if pbp_data[j].value == 1:
-            #print pbp_data[j].result, pbp_data[j].value 
+            #print pbp_data[j].result, pbp_data[j].value
             ft_total += pbp_data[j].worth
         #reset if not a free throw or a timeout
         elif pbp_data[j].stat_type != 'TIMEOUT':
@@ -697,17 +701,17 @@ def post_process_pbp(pbp_data,N):
         if j != 0:
             clutch += clutch_time(pbp_data[j-1].diff_score,pbp_data[j-1].time,pbp_data[j].time,5,5)
 
-        
+
         if j != N:
             #possession change if different team has possession than previous stat and some other anomalies are not present
             if (pbp_data[j].possession != pbp_data[j+1].possession) & (pbp_data[j].stat_type != 'HALF') & (not (pbp_data[j+1].stat_type == 'FOUL') & (pbp_data[j+1].time == pbp_data[j].time) & (pbp_data[j].stat_type == 'FOUL') & (pbp_data[j+1].charge == 0)):
                 pbp_data[j].possession_change = 1
-                
+
         #keep track of the index of the last play that the team who had possession made on the possession
         if pbp_data[j].teamID == pbp_data[j].possession:
             pos_index = j
 
-        #special possession handling for halves        
+        #special possession handling for halves
         if pbp_data[j].stat_type == 'HALF':
             #assign the length of the last possession to possession time
             pbp_data[j].possession_time= (pbp_data[j].time - pos_start) * 60
@@ -731,13 +735,13 @@ def post_process_pbp(pbp_data,N):
         if pbp_data[j].possession_change == 1:
             pbp_data[pos_index].possession_time = (pbp_data[j].time - pos_start) * 60
             pos_start = pbp_data[j].time
-            
+
             #iterate backwards and assign the possession time to adjusted possession time
             k = 0
             while (pbp_data[j].possession == pbp_data[j - k].possession) & (j - k >= 0):
                 pbp_data[j - k].possession_time_adj = pbp_data[pos_index].possession_time
                 k += 1
-                
+
             #not sure about this one
             if j - k == 1:
                 if pbp_data[j - k].possession_time == '':
@@ -751,7 +755,7 @@ def post_process_pbp(pbp_data,N):
                     if fRun != pbp_data[j].teamID:
                         run = 0
                     fRun = pbp_data[j].teamID
-                    
+
                 if pbp_data[j].value > 1:
                     #assign turnover,second chance, and timeout points if this was not an and1
                     '''NOTE: any of these points are reset after the first fg attempt, regardless if there is
@@ -769,7 +773,7 @@ def post_process_pbp(pbp_data,N):
                         if and_one == 0:
                             pbp_data[j].timeout_points = pbp_data[j].worth
                             fTimeout = 0
-                
+
                 #if play is the last free throw attempt in the sequence
                 elif (pbp_data[j + 1].value != 1) & (not (pbp_data[j + 1].stat_type == 'TIMEOUT') & (pbp_data[j + 1].time == pbp_data[j].time)):
                     #assign either the freethrow total or the and one worth
@@ -792,7 +796,7 @@ def post_process_pbp(pbp_data,N):
                         else:
                             pbp_data[j].timeout_points = and_one_worth
                         fTimeout = 0
-                        
+
             #assign run flag if the first play is a make
             if j == 0 and pbp_data[j].result == 1:
                 fRun = pbp_data[j].teamID
@@ -806,12 +810,12 @@ def post_process_pbp(pbp_data,N):
                     if (pbp_data[j - k].player == pbp_data[j].player) & (pbp_data[j - k].result == 1) & (pbp_data[j - k].value > 1):
                         pbp_data[j].and_one = 1
                     k += 1
-                    
+
             #run is positive for team, and negative for opponent
             run = run - (-1) ** pbp_data[j].teamID * pbp_data[j].worth
         elif pbp_data[j].stat_type == 'REBOUND':
             #if offensive rebound, assign offensive rebound flag
-            if int(pbp_data[j].rebound_type) == 0: 
+            if int(pbp_data[j].rebound_type) == 0:
                 fOff_reb = 1
         elif pbp_data[j].stat_type == 'TIMEOUT':
             #if timeout, assign timeout flag
@@ -820,7 +824,7 @@ def post_process_pbp(pbp_data,N):
             #if turnover, assign turnover flag
             if fTurnover == 1:
                 pbp_data[j].to_points = 0
-                
+
             #if a turnover occurs after a oreb, timeout, or opposing team turnover, then points unconverted
             if fOff_reb == 1:
                 pbp_data[j].second_chance = 0
@@ -829,7 +833,7 @@ def post_process_pbp(pbp_data,N):
                 pbp_data[j].timeout_points = 0
                 fTimeout = 0
             fTurnover = 1
-    
+
     return pbp_data
 def clutch_time(diff_score,time0,time1,clutch_score,clutch_time):
     '''
@@ -881,29 +885,29 @@ def correct_lineup(stats, name, index, team):
     except IndexError:
         print index, len(stats)
         return stats
-        
+
 #----------------------------------------------------------------------
 #Box stat functions
 #----------------------------------------------------------------------
 def get_box_stat_game(home_team, away_team, home_outcome, date, rows):
-    
+
     #these headers are the headers used by stats.ncaa's box scores
     hdrs = ['Player', 'Pos','MP','FGM','FGA','3FG','3FGA','FT','FTA','PTS','ORebs','DRebs','Tot Reb','AST','TO','STL','BLK','Fouls']
-    
+
     #empty list to hold the box stat class instances
     box_data = []
     #max_score variable will be used to determine who won the game
     max_score = 0
     for row in rows:
         bstat = models.box_stat()
-        
+
         #convert row to bs object for easier parsing
         try:
             row = BeautifulSoup(row,"html.parser")
             tds = row.findAll('td')
         except:
             tds = []
-        
+
         #column index for each row
         k = 0
         for td in tds:
@@ -932,7 +936,7 @@ def get_box_stat_game(home_team, away_team, home_outcome, date, rows):
                     val = int(string.replace('/',''))
                     bstat = make_box_stat(hdrs[k],bstat,val)
                     #TODO: use setattr
-                    
+
                     if hdrs[k] == 'PTS':
                         max_score = max(max_score,val)
             except:
@@ -942,7 +946,7 @@ def get_box_stat_game(home_team, away_team, home_outcome, date, rows):
             k += 1
         #append each row as a box stat
         box_data.append(bstat)
-    
+
     #format team totals stats
     for st in box_data:
         try:
@@ -964,7 +968,7 @@ def get_box_stat_game(home_team, away_team, home_outcome, date, rows):
         except:
             continue
     return box_data
-    
+
 def make_box_stat(hdr,bstat,val):
     '''
     @summary: Consolidates
@@ -1017,10 +1021,8 @@ def check_game_stats(pbp_game):
     for plr in q:
         away_roster.append(plr.name)
 
-    db.session.commit()
-    
     chk_stats = ['pts','fga','fgm','tpa','tpm','fta','ftm','reb','dreb','oreb','to','pf','ast','blk','stl']
-    
+
     res = {}
     for name in away_roster:
         res[name] = {}
@@ -1029,20 +1031,20 @@ def check_game_stats(pbp_game):
     for name in home_roster:
         res[name] = {}
         for hdr in chk_stats:
-            res[name][hdr] = 0   
+            res[name][hdr] = 0
 
     for st in pbp_game.pbp_data:
         if st.player == 'NA':
             continue
-        
+
         if st.stat_type == 'POINT':
             res[st.player]['pts'] += st.worth
-            
+
             if st.value > 1:
                 #field goal
                 res[st.player]['fga'] += 1
                 res[st.player]['fgm'] += st.result
-                
+
                 if st.value == 3:
                     #3 pointer
                     res[st.player]['tpa'] += 1
@@ -1085,19 +1087,19 @@ def check_game_stats(pbp_game):
         for key in res[name].keys():
             if abs(res[name][key]) > 0:
                 print name, key, res[name][key], tf.get_team_param(home_team,'ncaa','statsheet'), tf.get_team_param(away_team,'ncaa','statsheet')
-            
+
 def check_poss_time(pbp_game):
 
     home_team = pbp_game.home_team
-    away_team = pbp_game.away_team 
-    date = pbp_game.date 
-    home_outcome = pbp_game.home_outcome   
-    
-    try: 
+    away_team = pbp_game.away_team
+    date = pbp_game.date
+    home_outcome = pbp_game.home_outcome
+
+    try:
         home_team = tf.get_team_param(home_team, 'statsheet')
     except:
         home_team = ''
-    try: 
+    try:
         away_team = tf.get_team_param(away_team, 'statsheet')
     except:
         away_team = ''
