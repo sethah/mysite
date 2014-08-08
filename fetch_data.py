@@ -48,7 +48,9 @@ def main():
     #return None
     #q = models.team.query.filter(getattr(models.team,'ncaaID')=='8').first()
     #print q.statsheet
-    q = models.pbp_stat.query.all()
+    q = models.team.query.all()
+    print len(q)
+    return None
     for play in q:
         #db.session.delete(play)
         print play.player
