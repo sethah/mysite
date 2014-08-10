@@ -45,6 +45,9 @@ class team(db.Model):
 
     def __getitem__(self, key):
         return getattr(self, key)
+    def __repr__(self):
+        return '<%s %s>' % (
+            self.ncaaID, self.statsheet)
 
 class raw_game(db.Model):
     __tablename__ = 'raw_game'
@@ -116,6 +119,9 @@ class game(db.Model):
 
     def __getitem__(self, key):
         return getattr(self, key)
+    def __repr__(self):
+        return '<%s %s>' % (
+            self.home_team, self.away_team)
 
 
 class box_stat(db.Model):

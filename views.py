@@ -11,9 +11,8 @@ mod = Blueprint('main', __name__)
 @mod.route('/')
 @mod.route('/index')
 def index():
-    q = models.User.query.all()
-    return str(len(q))
-    #return render_template('index.html')
+    
+    return render_template('index.html')
 
 @mod.route('/alembic')
 def sql_test():

@@ -16,6 +16,7 @@ def teams():
 
     #need to query all teams to get all possible conferences for the dropdown
     all_teams = models.team.query.all()
+    
     #get the conferences
     conferences = []
     for tm in all_teams:
@@ -40,7 +41,7 @@ def teams():
     #convert the data to list of lists
     key_list = ['espn_name','conference']
     hdrs = ['Team', 'Conference']
-
+    
     return render_template('teams.html',
         title = 'Teams',
         hdrs = hdrs,
@@ -73,11 +74,11 @@ def schedule(the_team):
 
     #query for all the team's games
     gms = models.game.query.filter(or_(models.game.home_team == ncaaID, models.game.away_team == ncaaID)).order_by(models.game.date).all()
-
+    
     #if no games were found
     if len(gms) < 1:
         return render_template('schedules.html',no_data = True, team = the_team)
-
+    #return str(gms)
     #condition the data
     the_games = []
     for gm in gms:
@@ -85,17 +86,29 @@ def schedule(the_team):
         for key,val in gm.__dict__.items():
             if key == 'home_team':
                 try:
-                    team_obj = tf.get_team_param(val,'ncaaID')
-                    this_g.home_team = team_obj.ncaa
-                    this_g.home_team_link = team_obj.statsheet
+                    team_obj = models.team.query.filter(models.team.ncaaID==val).first()
+                    if team_obj == None:
+                        #no team found in db
+                        this_g.home_team = str(val)
+                        #no team link if not found in db
+                        this_g.home_team_link = ''
+                    else:
+                        this_g.home_team = team_obj.ncaa
+                        this_g.home_team_link = team_obj.statsheet
                 except:
                     this_g.home_team = ''
                     this_g.home_team_link = ''
             elif key == 'away_team':
                 try:
-                    team_obj = tf.get_team_param(val,'ncaaID')
-                    this_g.away_team = team_obj.ncaa
-                    this_g.away_team_link = team_obj.statsheet
+                    team_obj = models.team.query.filter(models.team.ncaaID==val).first()
+                    if team_obj == None:
+                        #no team found in db
+                        this_g.away_team = str(val)
+                        #no team link if not found in db
+                        this_g.away_team_link = ''
+                    else:
+                        this_g.away_team = team_obj.ncaa
+                        this_g.away_team_link = team_obj.statsheet
                 except:
                     this_g.away_team = ''
                     this_g.away_team_link = ''

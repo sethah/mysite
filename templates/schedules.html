@@ -15,12 +15,16 @@
         {% for d in data %}
         <tr>
             {% for key in key_list %}
-                {% if key == 'outcome' %}
+                {% if key == 'outcoasdfme' %}
                     <td>{{ d[key]+' | ' }}<a href="{{ url_for('game.box_stats', the_month = d.date.split('-')[0], the_day = d.date.split('-')[1], the_year = d.date.split('-')[2], game_string = d.away_team_link+'@'+d.home_team_link)}}">Box Score</a></td>
                 {% elif key == 'home_team' %}
                     <td><a href="{{ url_for('teams.schedule', the_team = d.home_team_link)}}">{{ d[key] }}</a></td>
                 {% elif key == 'away_team' %}
-                    <td><a href="{{ url_for('teams.schedule', the_team = d.away_team_link)}}">{{ d[key] }}</a></td>
+                	{% if d.away_team_link == ''%}
+                		<td>{{ d[key] }}</td>
+                	{% else %}
+                    	<td><a href="{{ url_for('teams.schedule', the_team = d.away_team_link)}}">{{ d[key] }}</a></td>
+                    {% endif %}
                 {% else %}
                     <td>{{ d[key] }}</td>
                 {% endif %}

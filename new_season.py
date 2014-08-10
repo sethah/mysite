@@ -29,21 +29,28 @@ def main():
         if year.year == None:
             db.session.delete(year)
     db.session.commit()'''
-    '''plr_q = models.player.query.join(models.team).join(models.year).all()
-    print len(plr_q)
-    for plr in plr_q:
-        if plr.team.year.year != 2014:
-            print plr
+    '''q = models.game.query.join(models.year).filter(models.year.year==2014).all()
+    #q = models.team.query.join(models.year).filter(models.year.year==2014).limit(2).offset(2).all()
+    print len(q)
+    return None
+    for game in q:
+        print game, game.year.year
     return None'''
 
     the_year = 2014
-    yearly_update_schedules(the_year)
-def yearly_update_schedules(year_arg):
-    all_teams = models.team.query.join(models.year).filter(models.year.year==year_arg).all()
+    #locations, opponents, dates = get_ncaa_schedule_data('4')
+    yearly_update_schedules(the_year,340,30)
+def yearly_update_schedules(year_arg,q_offset,q_limit=10):
+    all_teams = models.team.query.join(models.year).filter(models.year.year==year_arg).limit(q_limit).offset(q_offset).all()
     for team in all_teams:
         locations, opponents, dates = get_ncaa_schedule_data(team.ncaaID)
+        print team.statsheet
+        
+        if locations == None:
+            continue
+        
         store_schedule(team.ncaaID,locations,opponents,dates,year_arg)
-
+        
 def store_schedule(teamID,locations,opponents,dates,year_arg):
     #query for the year object to add the games to
     the_year =  models.year.query.filter(models.year.year==year_arg).first()
@@ -395,8 +402,17 @@ def get_ncaa_schedule_data(teamID):
                 location = 'Home'
 
             #get the opponent
-            opponent = tds[1].find('a')['href']
-            opponent = opponent[opponent.find('=')+1:len(opponent)]
+            try:
+                opponent = tds[1].find('a')['href']
+                opponent = opponent[opponent.find('=')+1:len(opponent)]
+                
+                #check to see if this team exists in the database
+                opp_q = models.team.query.filter(models.team.ncaaID==opponent).first()
+                if opp_q is None:
+                    #opponent not in database, so use a string instead
+                    assert False
+            except:
+                opponent = tds[1].get_text().replace('@','').strip()
 
             #append data to the lists
             locations.append(location)
@@ -409,6 +425,7 @@ def get_ncaa_schedule_data(teamID):
         return locations, opponents, dates
     else:
         #something went wrong
+        print len(locations), len(opponents), len(dates)
         print 'lists uneven in length for team %s' % teamID
         return None, None, None
 if __name__ == "__main__":

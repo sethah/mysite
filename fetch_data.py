@@ -48,12 +48,16 @@ def main():
     #return None
     #q = models.team.query.filter(getattr(models.team,'ncaaID')=='8').first()
     #print q.statsheet
-    q = models.team.query.all()
+    q = models.team.query.join(models.year).filter(models.year==2014).all()
+    q = models.year.query.all()
+    q = models.team.query.join(models.year).all()
     print len(q)
-    return None
-    for play in q:
-        #db.session.delete(play)
-        print play.player
+    teams_list = []
+    for team in q:
+        if team.statsheet not in teams_list:
+            teams_list.append(team.statsheet)
+        else:
+            print team.statsheet, team.year
         continue
         home_team = tf.get_team_param(game.home_team,'ncaaID').statsheet
         away_team = tf.get_team_param(game.away_team,'ncaaID').statsheet
@@ -123,6 +127,7 @@ def process_raw_games(the_date):
                 #if it's a neutral site game, then update the home and away teams
                 this_game.home_team = raw_game.home_team
                 this_game.away_team = raw_game.away_team
+            pbp_game = this_game
         else:
             #the game doesn't exist
             pbp_game = models.game()
