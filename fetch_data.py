@@ -31,40 +31,23 @@ db_year = 2014
 def main():
     '''This function needs to do all the one time things that are required
     to begin a new database for a new season'''
+    
+    q= models.game.query.join(models.year).filter(and_(models.year.year==2014,models.game.home_team=='306')).all()
+    for g in q:
+        print g.home_team, g.away_team, g.home_outcome
+    return None
 
     #use today's date
     the_date = datetime.today().date()
 
-    date_string = '03/10/2014'
+    date_string = '11/08/2013'
     the_date = datetime.strptime(date_string,'%m/%d/%Y').date()
 
-    #update_db(the_date)
-
-    '''new_year = models.year()
-    new_year.year = 2014
-    db.session.add(new_year)
-    db.session.commit()'''
-
-    #return None
-    #q = models.team.query.filter(getattr(models.team,'ncaaID')=='8').first()
-    #print q.statsheet
-    q = models.team.query.join(models.year).filter(models.year==2014).all()
-    q = models.year.query.all()
-    q = models.team.query.join(models.year).all()
-    print len(q)
-    teams_list = []
-    for team in q:
-        if team.statsheet not in teams_list:
-            teams_list.append(team.statsheet)
-        else:
-            print team.statsheet, team.year
-        continue
-        home_team = tf.get_team_param(game.home_team,'ncaaID').statsheet
-        away_team = tf.get_team_param(game.away_team,'ncaaID').statsheet
-        print home_team, away_team, game.date
-        #db.session.delete(game)
-    #db.session.commit()
+    update_db(the_date)
     return None
+    q = models.pbp_stat.query.join(models.game).join(models.year).filter(models.year.year==2014).all()
+    print len(q)
+    
 
 def update_db(the_date):
     '''This function is to be called once a day to update the games in
@@ -74,13 +57,13 @@ def update_db(the_date):
     '''
 
     #store all the raw html for games for the date in the database
-    store_raw_scoreboard_games_bool = store_raw_scoreboard_games(the_date)
+    '''store_raw_scoreboard_games_bool = store_raw_scoreboard_games(the_date)
     #return None
     if not store_raw_scoreboard_games_bool:
         print store_raw_scoreboard_games_bool
         return None
 
-    #return None
+    return None'''
 
     #update the team info (rpi, sos, etc...)
     #tf.get_rpi()
@@ -106,7 +89,6 @@ def process_raw_games(the_date):
     error_msg = ''
     for raw_game in raw_q:
 
-
         pbp_error_msg = ''
         #if the team info doesn't exist for the team skip it
         #TODO: get_team_param no longer works, or does it?
@@ -116,18 +98,25 @@ def process_raw_games(the_date):
         if home_team_obj == None or away_team_obj == None:
             pbp_error_msg += "couldn't find one or more teams, %s, %s, %s" % (date_string, raw_game.home_team, raw_game.away_team)
             continue
-
+        
         #TODO
         #see if the pbp game already exists
         this_game = models.game.query.filter(or_(and_(models.game.date==the_date,models.game.home_team==home_team_obj.ncaaID,models.game.away_team==away_team_obj.ncaaID),
                                             and_(models.game.date==the_date,models.game.away_team==home_team_obj.ncaaID,models.game.home_team==away_team_obj.ncaaID))).first()
         if this_game != None:
             #the game exists
+            '''print raw_game.home_team, raw_game.away_team
+            continue'''
             if this_game.neutral_site:
                 #if it's a neutral site game, then update the home and away teams
                 this_game.home_team = raw_game.home_team
                 this_game.away_team = raw_game.away_team
             pbp_game = this_game
+
+            #delete any box stats or pbp stats from the game
+            pbp_game.box_stats.delete()
+            pbp_game.pbp_stats.delete()
+            db.session.flush()
         else:
             #the game doesn't exist
             pbp_game = models.game()
@@ -157,6 +146,7 @@ def process_raw_games(the_date):
             for plr in box_data:
                 if plr.started:
                     starters.append(plr.name)
+            print 'box stats successful'
         except Exception, e:
             traceback.print_exc()
             #problem processing box data
@@ -173,16 +163,22 @@ def process_raw_games(the_date):
             pbp_rows = [pbp_row.soup_string for pbp_row in pbp_rows]
             #process the play by play data for the game
             pbp_data = gpf.get_play_by_play(raw_game.home_team,raw_game.away_team,raw_game.date, pbp_rows,starters)
+            
+            #assign some score attributes to the game
+            pbp_game.home_outcome = gpf.get_home_outcome(pbp_data)
+            pbp_game.home_score = int(pbp_data[-1].home_score)
+            pbp_game.away_score = int(pbp_data[-1].away_score)
+            
             for st in pbp_data:
                 pbp_game.pbp_stats.append(st)
+            print 'pbp stats successful'
         except Exception, e:
             traceback.print_exc()
             #problem processing pbp data
             pbp_error_msg = "pbp stats failed, %s, %s, %s" % (date_string, raw_game.home_team, raw_game.away_team)
             db.session.rollback()
             error_msg += "\n"+pbp_error_msg
-            #continue
-            break
+            continue
 
         the_year.games.append(pbp_game)
         db.session.flush()
@@ -221,11 +217,9 @@ def store_raw_scoreboard_games(the_date):
                 link = links[j]
                 box_link = box_links[j]
 
-
+                
                 if team1_obj == None or team2_obj == None:
                     raise rawGameException, 'one or more teams not found'
-
-
 
                 #if game is in database skip it
                 game_exists_q = models.raw_game.query.filter(or_(and_(models.raw_game.home_team==team1,models.raw_game.away_team==team2,models.raw_game.date==the_date),
@@ -242,6 +236,7 @@ def store_raw_scoreboard_games(the_date):
                     raise rawGameException, store_raw_data_msg
                 else:
                     #data stored successfully
+                    print team1_obj.statsheet, team2_obj.statsheet
                     pass
             except rawGameException, e:
                 #print the error message, and continue in the loop

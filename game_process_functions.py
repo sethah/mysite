@@ -1112,3 +1112,13 @@ def check_poss_time(pbp_game):
     if poss_time != 2400 and poss_time != 2700 and poss_time != 3000 or True:
         pass
         print home_team, away_team, poss_time, date
+def get_home_outcome(pbp_data):
+    try:
+        if int(pbp_data[-1].home_score) > int(pbp_data[-1].away_score):
+            home_outcome = 'W'
+        else:
+            home_outcome = 'L'
+    except:
+        print 'bad outcome'
+        home_outcome = None
+    return home_outcome

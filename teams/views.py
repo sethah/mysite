@@ -113,10 +113,16 @@ def schedule(the_team):
                     this_g.away_team = ''
                     this_g.away_team_link = ''
             elif 'outcome' in key:
-                if ncaaID != gm.home_team:
-                    this_g.outcome = tf.win_loss_invert(gm.home_outcome)
-                else:
-                    this_g.outcome = gm.home_outcome
+                try:
+                    if ncaaID != gm.home_team:
+                        this_g.outcome = tf.win_loss_invert(gm.home_outcome)
+                    else:
+                        this_g.outcome = gm.home_outcome
+                    #if the outcome is None, then raise an error to give an empty string
+                    if this_g.outcome is None:
+                        assert False
+                except:
+                    this_g.outcome = ''
             elif key == 'date':
                 this_g.date = gm.date.strftime('%m-%d-%Y')
         the_games.append(this_g)

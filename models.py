@@ -60,8 +60,8 @@ class raw_game(db.Model):
     #TODO: don't need location
     location = db.Column(db.String(140))
     home_outcome = db.Column(db.String(140))
-    raw_box_stats = db.relationship('raw_box', backref='raw_game', lazy='dynamic',primaryjoin="raw_box.raw_game_id==raw_game.id")
-    raw_pbp_stats = db.relationship('raw_play', backref='raw_game', lazy='dynamic',primaryjoin="raw_play.raw_game_id==raw_game.id")
+    raw_box_stats = db.relationship('raw_box',cascade='all,delete', backref='raw_game', lazy='dynamic',primaryjoin="raw_box.raw_game_id==raw_game.id")
+    raw_pbp_stats = db.relationship('raw_play', cascade='all,delete', backref='raw_game', lazy='dynamic',primaryjoin="raw_play.raw_game_id==raw_game.id")
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -192,7 +192,28 @@ class pbp_stat(db.Model):
     def __getitem__(self, key):
         return getattr(self, key)
 
-
+    def add_to_lineup(self,name,team):
+        if team == 'home':
+            lineup = self.home_lineup.split(',')
+            if name not in lineup:
+                lineup.append(name)
+                self.home_lineup = ','.join(lineup)
+        elif team == 'away':
+            lineup = self.away_lineup.split(',')
+            if name not in lineup:
+                lineup.append(name)
+                self.away_lineup = ','.join(lineup)
+    def delete_from_lineup(self,name,team):
+        if team == 'home':
+            lineup = self.home_lineup.split(',')
+            if name in lineup:
+                lineup.remove(name)
+                self.home_lineup = ','.join(lineup)
+        elif team == 'away':
+            lineup = self.away_lineup.split(',')
+            if name in lineup:
+                lineup.remove(name)
+                self.away_lineup = ','.join(lineup)
 
 class Page_Opener:
 

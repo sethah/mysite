@@ -29,13 +29,15 @@ def main():
         if year.year == None:
             db.session.delete(year)
     db.session.commit()'''
-    '''q = models.game.query.join(models.year).filter(models.year.year==2014).all()
+    q = models.team.query.all()
     #q = models.team.query.join(models.year).filter(models.year.year==2014).limit(2).offset(2).all()
     print len(q)
     return None
-    for game in q:
-        print game, game.year.year
-    return None'''
+    for team in q:
+        if team.year.year != 2014:
+            db.session.delete(team)
+    db.session.commit()
+    return None
 
     the_year = 2014
     #locations, opponents, dates = get_ncaa_schedule_data('4')

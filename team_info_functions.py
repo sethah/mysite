@@ -190,11 +190,11 @@ def home_and_away_teams(soup,team1,team2):
     #print left_col, right_col,tds[0].get_text().strip(),tds[3].get_text().strip()
     #print team1, team2
     if left_col == team1 and right_col == team2:
-        home_team = team1
-        away_team = team2
-    elif left_col == team2 and right_col == team1:
         home_team = team2
         away_team = team1
+    elif left_col == team2 and right_col == team1:
+        home_team = team1
+        away_team = team2
     else:
         home_team = None
         away_team = None
