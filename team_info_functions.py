@@ -3,6 +3,7 @@ from datetime import datetime
 from flask import flash
 from mysite import link_functions as lf
 from mysite import db
+from sqlalchemy import and_,or_
 
 
 def myround(x, base=5):
@@ -336,52 +337,61 @@ def get_ncaa_schedule_data(teamID):
 
     #real locations no longer returned
     return links, box_links, outcomes, locations, opponents, dates, games
-def get_rpi():
+def get_rpi(the_year):
     #TODO: this is horrendous. make the function work
+    #TODO: error proof this
     '''
-    @Function: get_rpi(hdrs)
+    @Function: get_rpi()
     @Author: S. Hendrickson 3/5/14
     @Return: This function fetches rpi and other team data and stores it in
     a lookup table.
     '''
+
+    #try:
     #open the link and grab the HTML
     link = 'http://statsheet.com/mcb/rankings/RPI'
-    po = models.Page_Opener()
-    soup = po.open_and_soup(link)
+    soup = lf.get_soup(link)
 
     #get the rows of the table that has the team information
     table = get_largest_table(soup)
     rows = table.findAll('tr')
     rows = rows[1:len(rows)]
+    #except:
+    #    print 'asdf'
+    #    rows = []
 
     for row in rows:
-        #get the cell information defined in cats from each row
-        tds = row.findAll('td')
-        a = tds[1].find('a')['href']
-        team = a[a.rfind('/')+1:len(a)]
+        try:
+            #get the cell information defined in cats from each row
+            tds = row.findAll('td')
+            a = tds[1].find('a')['href']
+            team = a[a.rfind('/')+1:len(a)]
 
-        #query for the current team using statsheet attribute
-        q = models.team.query.filter(models.team.statsheet == team)
-        the_team = q.first()
+            #query for the current team using statsheet attribute
+            q = models.team.query.join(models.year).filter(and_(models.year.year==the_year,models.team.statsheet == team))
+            the_team = q.first()
 
+            #if the team wasn't found in the db, do nothing
+            if the_team == None:
+                print 'no team'
+                continue
 
-        #if the team wasn't found in the db, do nothing
-        if the_team == None:
-            #print 'nothing'
+            #print the_team.statsheet
+            the_team.rpi_rank = tds[0].get_text().strip()
+            the_team.wins = tds[2].get_text().strip()
+            the_team.losses = tds[3].get_text().strip()
+            the_team.rpi = tds[4].get_text().strip()
+            the_team.sos = tds[5].get_text().strip()
+            the_team.sos_rank = tds[7].get_text().strip()
+            the_team.conference = tds[9].get_text().strip()
+            print the_team
+        except:
+            #error with team row
+            print 'error'
             continue
 
-        #print the_team.statsheet
-        the_team.rpi_rank = tds[0].get_text().strip()
-        the_team.wins = tds[2].get_text().strip()
-        the_team.losses = tds[3].get_text().strip()
-        the_team.rpi = tds[4].get_text().strip()
-        the_team.sos = tds[5].get_text().strip()
-        the_team.sos_rank = tds[7].get_text().strip()
-        the_team.conference = tds[9].get_text().strip()
-
-    sess.session.flush()
-    #sess.session.rollback
-    sess.session.commit()
+    db.session.flush()
+    db.session.commit()
 def process_pbp_game(raw_game):
 
     try:

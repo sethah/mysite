@@ -7,13 +7,13 @@ from mysite import models
 
 def get_soup(link):
     po = models.Page_Opener()
+    soup = po.open_and_soup(link)
     try:
         soup = po.open_and_soup(link)
     except:
         #error connecting to link
         soup = None
-    
+
     return soup
-    
-    
-    
+
+

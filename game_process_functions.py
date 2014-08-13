@@ -9,6 +9,7 @@ from mysite import models
 from mysite import db
 from mysite import team_info_functions as tf
 import math
+from sqlalchemy import and_,or_
 from bs4 import BeautifulSoup
 
 #-------------------------functions----------------------#
@@ -1006,21 +1007,23 @@ def make_box_stat(hdr,bstat,val):
     elif hdr == 'PF' or hdr == 'Fouls':
         bstat.pf = val
     return bstat
-def check_game_stats(pbp_game):
+def check_game_stats(pbp_game, the_year):
 
     home_team = pbp_game.home_team
     away_team = pbp_game.away_team
 
-    q = models.player.query.join(models.team).filter(models.team.ncaaID==home_team).all()
+    #get the home and away rosters
+    q = models.player.query.join(models.team).join(models.year).filter(and_(models.year.year==the_year,models.team.ncaaID==home_team)).all()
     home_roster = []
     for plr in q:
         home_roster.append(plr.name)
 
-    q = models.player.query.join(models.team).filter(models.team.ncaaID==away_team).all()
+    q = models.player.query.join(models.team).join(models.year).filter(and_(models.year.year==the_year,models.team.ncaaID==away_team)).all()
     away_roster = []
     for plr in q:
         away_roster.append(plr.name)
 
+    #these are the stats that will be checked
     chk_stats = ['pts','fga','fgm','tpa','tpm','fta','ftm','reb','dreb','oreb','to','pf','ast','blk','stl']
 
     res = {}

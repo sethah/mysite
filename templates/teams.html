@@ -32,7 +32,7 @@
         <tr>
             {% for key in key_list %}
                 {% if key == 'espn_name' %}
-                    <td><a href="{{ url_for('teams.schedule', the_team = 'indiana') }}">{{ d[key] }}</a></td>
+                    <td><a href="{{ url_for('teams.schedule', the_team = d.id, the_year = year) }}">{{ d[key] }}</a></td>
                 {% elif key == 'conference' %}
                     <td><a href="{{ url_for('teams.teams', conference = d.conference) }}">{{ d[key] }}</a></td>
                 {% else %}

@@ -9,6 +9,8 @@ from sqlalchemy import and_, or_
 from datetime import datetime
 import json
 
+current_year = 2014
+
 mod = Blueprint('teams', __name__,url_prefix='/teams')
 @mod.route('/', defaults={'conference': None})
 @mod.route('/')
@@ -16,7 +18,7 @@ def teams():
 
     #need to query all teams to get all possible conferences for the dropdown
     all_teams = models.team.query.all()
-    
+
     #get the conferences
     conferences = []
     for tm in all_teams:
@@ -41,18 +43,19 @@ def teams():
     #convert the data to list of lists
     key_list = ['espn_name','conference']
     hdrs = ['Team', 'Conference']
-    
+
     return render_template('teams.html',
         title = 'Teams',
         hdrs = hdrs,
         data = the_teams,
+        year = current_year,
         conferences = conferences,
         key_list = key_list,
         no_data = False)
 
-@mod.route('/<the_team>')
-@mod.route('/<the_team>/schedule')
-def schedule(the_team):
+@mod.route('<the_year>/<the_team>')
+@mod.route('<the_year>/<the_team>/schedule')
+def schedule(the_year,the_team):
     class tbl_game:
         def __init__(self):
             self.home_team = ''
@@ -72,9 +75,9 @@ def schedule(the_team):
         #team wasn't found
         return render_template('schedules.html',no_data = True, team = the_team)
 
-    #query for all the team's games
-    gms = models.game.query.filter(or_(models.game.home_team == ncaaID, models.game.away_team == ncaaID)).order_by(models.game.date).all()
-    
+    #query for all the team's games for the year given
+    gms = models.game.query.join(models.year).filter(and_(models.year.year==the_year,or_(models.game.home_team == ncaaID, models.game.away_team == ncaaID))).order_by(models.game.date).all()
+
     #if no games were found
     if len(gms) < 1:
         return render_template('schedules.html',no_data = True, team = the_team)
@@ -139,13 +142,13 @@ def schedule(the_team):
 
 
 
-@mod.route('/<the_team>/roster')
-def roster(the_team):
-    plrs = models.player.query.join(models.team).filter(models.team.statsheet==the_team).all()
+@mod.route('<the_year>/<the_team>/roster')
+def roster(the_year,the_team):
+    plrs = models.player.query.join(models.year).join(models.team).filter(and_(models.year.year==the_year,models.team.statsheet==the_team)).all()
 
 
     if len(plrs) == 0:
-        if len(models.team.query.filter(models.team.statsheet==the_team).all()) > 0:
+        if len(models.team.query.join(models.year).filter(and_(models.year.year==the_year,models.team.statsheet==the_team)).all()) > 0:
             #if no players are found, but team is valid
             return render_template('rosters.html',no_data = True,team = the_team)
         else:
@@ -164,8 +167,8 @@ def roster(the_team):
         team = the_team,
         no_data = False)
 
-@mod.route('/<the_team>/stats/points', methods=['GET','POST'])
-@mod.route('/<the_team>/stats', methods=['GET','POST'])
+@mod.route('<the_year>/<the_team>/stats/points', methods=['GET','POST'])
+@mod.route('<the_year>/<the_team>/stats', methods=['GET','POST'])
 def points(the_team):
     team_obj = tf.get_team_param(the_team,'statsheet')
     if team_obj == None:

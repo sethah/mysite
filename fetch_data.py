@@ -31,11 +31,20 @@ db_year = 2014
 def main():
     '''This function needs to do all the one time things that are required
     to begin a new database for a new season'''
-    
+    lf.get_soup('http://statsheet.com')
+
+    #tf.get_rpi(db_year)
+    return None
+
+    q = models.team.query.join(models.year).filter(models.year.year==2014).all()
+    for team in q:
+        print team.conference
+    return None
+    '''
     q= models.game.query.join(models.year).filter(and_(models.year.year==2014,models.game.home_team=='306')).all()
     for g in q:
         print g.home_team, g.away_team, g.home_outcome
-    return None
+    return None'''
 
     #use today's date
     the_date = datetime.today().date()
@@ -47,7 +56,7 @@ def main():
     return None
     q = models.pbp_stat.query.join(models.game).join(models.year).filter(models.year.year==2014).all()
     print len(q)
-    
+
 
 def update_db(the_date):
     '''This function is to be called once a day to update the games in
@@ -98,8 +107,7 @@ def process_raw_games(the_date):
         if home_team_obj == None or away_team_obj == None:
             pbp_error_msg += "couldn't find one or more teams, %s, %s, %s" % (date_string, raw_game.home_team, raw_game.away_team)
             continue
-        
-        #TODO
+
         #see if the pbp game already exists
         this_game = models.game.query.filter(or_(and_(models.game.date==the_date,models.game.home_team==home_team_obj.ncaaID,models.game.away_team==away_team_obj.ncaaID),
                                             and_(models.game.date==the_date,models.game.away_team==home_team_obj.ncaaID,models.game.home_team==away_team_obj.ncaaID))).first()
@@ -124,6 +132,8 @@ def process_raw_games(the_date):
             pbp_game.away_team = raw_game.away_team
             pbp_game.home_outcome = raw_game.home_outcome
             pbp_game.date = raw_game.date
+            #TODO
+
             #check if it is a neutral site game
                 #check the team's schedule page for this date
 
@@ -163,12 +173,12 @@ def process_raw_games(the_date):
             pbp_rows = [pbp_row.soup_string for pbp_row in pbp_rows]
             #process the play by play data for the game
             pbp_data = gpf.get_play_by_play(raw_game.home_team,raw_game.away_team,raw_game.date, pbp_rows,starters)
-            
+
             #assign some score attributes to the game
             pbp_game.home_outcome = gpf.get_home_outcome(pbp_data)
             pbp_game.home_score = int(pbp_data[-1].home_score)
             pbp_game.away_score = int(pbp_data[-1].away_score)
-            
+
             for st in pbp_data:
                 pbp_game.pbp_stats.append(st)
             print 'pbp stats successful'
@@ -180,9 +190,16 @@ def process_raw_games(the_date):
             error_msg += "\n"+pbp_error_msg
             continue
 
+        #check the pbp stats against the box stats
+        gpf.check_game_stats(pbp_game.pbp_stats,db_year)
+        #check the possession time
+        gpf.check_poss_time()
+
+        #save to database
         the_year.games.append(pbp_game)
         db.session.flush()
         db.session.commit()
+        break
 
     #if there was an error, send email
     if error_msg != '':
@@ -217,7 +234,7 @@ def store_raw_scoreboard_games(the_date):
                 link = links[j]
                 box_link = box_links[j]
 
-                
+
                 if team1_obj == None or team2_obj == None:
                     raise rawGameException, 'one or more teams not found'
 
