@@ -15,11 +15,13 @@ from mysite import models
 from mysite import db
 from mysite import link_functions as lf
 from mysite import team_info_functions as tf
+#from mysite import current_year
 from sqlalchemy import and_, or_
 import datetime
 import traceback
 
 def main():
+    return None
     #get_ncaa_schedule_data('306')
     #return None
     '''q = models.year.query.all()
@@ -29,30 +31,47 @@ def main():
         if year.year == None:
             db.session.delete(year)
     db.session.commit()'''
+    '''
     q = models.team.query.all()
-    #q = models.team.query.join(models.year).filter(models.year.year==2014).limit(2).offset(2).all()
-    print len(q)
-    return None
-    for team in q:
-        if team.year.year != 2014:
-            db.session.delete(team)
+    q = models.game.query.all()
+    cnt = 0
+    for game in q:
+        try:
+            home_team_id = int(game.home_team)
+            home_team = models.team.query.join(models.year).filter(and_(models.year.year==2014,models.team.ncaaID==game.home_team)).first()
+            if home_team is None:
+                #print home_team
+                cnt += 1
+                db.session.delete(game.box_stats)
+                db.session.delete(game.pbp_stats)
+                db.session.delete(game)
+            away_team = models.team.query.join(models.year).filter(and_(models.year.year==2014,models.team.ncaaID==game.away_team)).first()
+            if away_team is None:
+                cnt += 1
+                #print away_team
+                db.session.delete(game.box_stats)
+                db.session.delete(game.pbp_stats)
+                db.session.delete(game)
+        except:
+            #it's a string skip it
+            continue
+    print cnt
+    #db.session.rollback()
     db.session.commit()
-    return None
+    return None'''
 
-    the_year = 2014
-    #locations, opponents, dates = get_ncaa_schedule_data('4')
-    yearly_update_schedules(the_year,340,30)
+    yearly_update_schedules(current_year,360,30)
 def yearly_update_schedules(year_arg,q_offset,q_limit=10):
     all_teams = models.team.query.join(models.year).filter(models.year.year==year_arg).limit(q_limit).offset(q_offset).all()
     for team in all_teams:
         locations, opponents, dates = get_ncaa_schedule_data(team.ncaaID)
         print team.statsheet
-        
+
         if locations == None:
             continue
-        
+
         store_schedule(team.ncaaID,locations,opponents,dates,year_arg)
-        
+
 def store_schedule(teamID,locations,opponents,dates,year_arg):
     #query for the year object to add the games to
     the_year =  models.year.query.filter(models.year.year==year_arg).first()
@@ -67,9 +86,12 @@ def store_schedule(teamID,locations,opponents,dates,year_arg):
             q = models.game.query.filter(or_(and_(models.game.date==dates[j],models.game.home_team==teamID,models.game.away_team==opponents[j]),
                                             and_(models.game.date==dates[j],models.game.away_team==teamID,models.game.home_team==opponents[j]))).first()
             if q != None:
+                #continue if game already exists
                 continue
+                new_game = q
+            else:
+                new_game = models.game()
 
-            new_game = models.game()
             new_game.date = dates[j]
             if locations[j] == 'Home':
                 new_game.home_team = teamID
@@ -407,7 +429,7 @@ def get_ncaa_schedule_data(teamID):
             try:
                 opponent = tds[1].find('a')['href']
                 opponent = opponent[opponent.find('=')+1:len(opponent)]
-                
+
                 #check to see if this team exists in the database
                 opp_q = models.team.query.filter(models.team.ncaaID==opponent).first()
                 if opp_q is None:

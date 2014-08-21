@@ -5,11 +5,11 @@ def init_game_data(month,day,year,game_string):
     #the game string should be two teams separated by '@'
     if game_string.count('@') == 1:
         teams = game_string.split('@')
-        home_team_obj = tf.get_team_param(teams[1],'statsheet')
-        away_team_obj = tf.get_team_param(teams[0],'statsheet')
+        home_team_ss = teams[1]
+        away_team_ss=  teams[0]
     else:
-        home_team_obj = None
-        away_team_obj = None
+        home_team_ss = None
+        away_team_ss=  None
 
     #handle date being in wrong format
     try:
@@ -17,7 +17,7 @@ def init_game_data(month,day,year,game_string):
     except ValueError:
         date = None
 
-    if home_team_obj == None or away_team_obj == None or date == None:
+    if home_team_ss == None or away_team_ss == None or date == None:
         return None, None, None
     else:
-        return home_team_obj, away_team_obj, date
+        return home_team_ss, away_team_ss, date

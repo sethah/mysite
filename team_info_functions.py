@@ -4,7 +4,7 @@ from flask import flash
 from mysite import link_functions as lf
 from mysite import db
 from sqlalchemy import and_,or_
-
+import traceback
 
 def myround(x, base=5):
     return int(base * round(float(x)/base))
@@ -99,7 +99,7 @@ def get_ncaa_schedule_data(teamID):
 
     #real locations no longer returned
     return links, box_links, outcomes, locations, real_locations, opponents, dates, games
-def get_scoreboard_games(date_string):
+def get_scoreboard_games(date_string, the_year):
     '''
     @Function: convert_name_ncaa(name)
     @Author: S. Hendrickson 3/5/14
@@ -139,26 +139,49 @@ def get_scoreboard_games(date_string):
         box_link = None
         pbp_link = None
         try:
+            rows = game.findAll('tr')
+            tds = [row.findAll('td')[0] for row in rows]
+            if len(tds) != 3:
+                continue
+
             #find all the links in the game table
             game_links = game.findAll('a')
 
             #handle all the links
-            for link in game_links:
+            idx = 0
+            for td in tds:
                 #get the url in the a tag
                 try:
+                    link = td.findAll('a')[0]
                     url = link['href']
                 except:
-                    continue
+                    url = ''
+                    pass
 
                 if 'team/index' in url:
                     #handle a team link
-                    teams.append(url[url.index('=')+1:len(url)])
+                    team_string =  link.get_text().strip()
+                    teamID = url[url.index('=')+1:len(url)]
+                    team_q = models.team.query.join(models.year).filter(and_(models.year.year==the_year,models.team.ncaaID==teamID)).first()
+                    if team_q == None:
+                        #this team isn't in the database, use the string for the team instead
+                        teams.append(team_string)
+                    else:
+                        teams.append(teamID)
+                elif url == '' and idx != 2:
+                    #if there is no link for the cell, and it isn't the third cell (game score)
+                    team_string =  td.get_text().strip()
+                    teams.append(team_string)
                 elif 'game/index' in url:
                     #handle a game link
                     index = url[url.index('/index')+len('index/')+1:url.index('?')]
                     pbp_link = 'http://stats.ncaa.org/game/play_by_play/'+index
                     box_link = 'http://stats.ncaa.org/game/box_score/'+index
-        except:
+
+                idx += 1
+        except Exception, e:
+            print 'bleh!'
+            traceback.print_exc()
             pass
 
         #make sure everything is normal

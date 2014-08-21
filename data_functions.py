@@ -4,6 +4,22 @@ from flask import flash
 from mysite import models
 from sqlalchemy import and_, or_
 
+#print myround(2435,300)
+def get_year():
+    current_year = 2014
+    return current_year
+def get_year_from_date(date):
+    transition_month = 9
+    try:
+        year = date.year
+        month = date.month
+        if month >= transition_month:
+            new_year = year + 1
+        else:
+            new_year = year
+    except:
+        return None
+    return new_year
 def myround(num, divisor, round_type = 'down'):
     if round_type == 'down':
         rounded = num - (num%divisor)

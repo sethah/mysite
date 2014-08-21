@@ -15,7 +15,7 @@ from bs4 import BeautifulSoup
 #-------------------------functions----------------------#
 def get_play_by_play(home_team, away_team, date, rows, starters):
     '''
-    Function: get_play_by_play(player_names,last_names, rows)
+    Function: get_play_by_play(home_team, away_team, date, rows, starters)
     Author: S. Hendrickson 1/11/14
     Return: This function performs a variety of subfunctions in order to process the
     play-by-play data. It turns the textual play descriptions into a parseable
@@ -27,8 +27,6 @@ def get_play_by_play(home_team, away_team, date, rows, starters):
     g = 0
 
     #get the player names
-
-
 
     #PBP data not available if there are <100 rows
     if len(rows) > 100:
@@ -409,6 +407,7 @@ def basic_data_pbp(rows,home_team, away_team, starters):
                     st.away_score = pbp_data[i - 1].away_score
                     st.diff_score = pbp_data[i - 1].diff_score
                     st.possession = pbp_data[i - 1].possession
+                    st.teamID = pbp_data[i-1].teamID
 
                     #handle possession change for the 'HALF' stat
                     if possession_change(pbp_data, i - 1):
@@ -551,6 +550,7 @@ def basic_data_pbp(rows,home_team, away_team, starters):
 
     #append a 'HALF' stat to the end
     st = models.pbp_stat()
+    st.teamID = pbp_data[i-1].teamID
     st.stat_type = 'HALF'
     st.time = math.ceil(pbp_data[i - 1].time)
     st.home_score = pbp_data[i - 1].home_score
@@ -1008,6 +1008,7 @@ def make_box_stat(hdr,bstat,val):
         bstat.pf = val
     return bstat
 def check_game_stats(pbp_game, the_year):
+    errors = []
 
     home_team = pbp_game.home_team
     away_team = pbp_game.away_team
@@ -1036,7 +1037,7 @@ def check_game_stats(pbp_game, the_year):
         for hdr in chk_stats:
             res[name][hdr] = 0
 
-    for st in pbp_game.pbp_data:
+    for st in pbp_game.pbp_stats.all():
         if st.player == 'NA':
             continue
 
@@ -1075,7 +1076,7 @@ def check_game_stats(pbp_game, the_year):
 
     plrs = res.keys()
     names = []
-    for bst in pbp_game.box_data:
+    for bst in pbp_game.box_stats:
         for hdr in chk_stats:
             #subtract from the box stat total, and you should end up at zero eventually
             if str(bst.name) in home_roster or str(bst.name) in away_roster:
@@ -1088,33 +1089,28 @@ def check_game_stats(pbp_game, the_year):
 
     for name in names:
         for key in res[name].keys():
-            if abs(res[name][key]) > 0:
-                print name, key, res[name][key], tf.get_team_param(home_team,'ncaa','statsheet'), tf.get_team_param(away_team,'ncaa','statsheet')
+            if abs(res[name][key]) > 1:
+                errors.append(','.join([name,key,str(res[name][key]),pbp_game.home_team,pbp_game.away_team]))
 
-def check_poss_time(pbp_game):
+    return errors
+def check_poss_time(pbp_game, the_year):
 
     home_team = pbp_game.home_team
     away_team = pbp_game.away_team
     date = pbp_game.date
-    home_outcome = pbp_game.home_outcome
 
-    try:
-        home_team = tf.get_team_param(home_team, 'statsheet')
-    except:
-        home_team = ''
-    try:
-        away_team = tf.get_team_param(away_team, 'statsheet')
-    except:
-        away_team = ''
     poss_time = 0
-    for st in pbp_game.pbp_data:
+    for st in pbp_game.pbp_stats.all():
         if st.possession_time > -1:
             poss_time += st.possession_time
         if st.possession_time > 70:
             pass
-    if poss_time != 2400 and poss_time != 2700 and poss_time != 3000 or True:
-        pass
-        print home_team, away_team, poss_time, date
+    #this handles a lot of overtimes
+    if poss_time not in range(2400,10000)[0::300]:
+        poss_error = round(poss_time/300.0)*300
+        return poss_time, poss_error
+    else:
+        return None, None
 def get_home_outcome(pbp_data):
     try:
         if int(pbp_data[-1].home_score) > int(pbp_data[-1].away_score):

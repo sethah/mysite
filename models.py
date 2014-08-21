@@ -120,8 +120,8 @@ class game(db.Model):
     def __getitem__(self, key):
         return getattr(self, key)
     def __repr__(self):
-        return '<%s %s>' % (
-            self.home_team, self.away_team)
+        return '<%s %s %s %s>' % (
+            self.home_team, self.away_team, self.home_score, self.away_score)
 
 
 class box_stat(db.Model):
@@ -214,6 +214,9 @@ class pbp_stat(db.Model):
             if name in lineup:
                 lineup.remove(name)
                 self.away_lineup = ','.join(lineup)
+    def __repr__(self):
+        return '<%s %s %s>' % (
+            self.teamID, self.player, self.stat_type)
 
 class Page_Opener:
 

@@ -9,7 +9,7 @@ from sqlalchemy import and_, or_
 from datetime import datetime
 import json
 
-current_year = 2014
+current_year = df.get_year()
 
 mod = Blueprint('teams', __name__,url_prefix='/teams')
 @mod.route('/', defaults={'conference': None})
@@ -17,7 +17,7 @@ mod = Blueprint('teams', __name__,url_prefix='/teams')
 def teams():
 
     #need to query all teams to get all possible conferences for the dropdown
-    all_teams = models.team.query.all()
+    all_teams = models.team.query.join(models.year).filter(models.year.year==current_year).all()
 
     #get the conferences
     conferences = []
@@ -31,7 +31,7 @@ def teams():
     if conference == None or conference == 'All':
         the_teams = all_teams
     elif conference in conferences:
-        the_teams = models.team.query.filter(models.team.conference==conference).all()
+        the_teams = models.team.query.join(models.year).filter(and_(models.team.conference==conference,models.year.year==current_year)).all()
     else:
         #the conference specified isn't valid
         return render_template('teams.html',conferences = conferences,no_data = True)
@@ -53,8 +53,8 @@ def teams():
         key_list = key_list,
         no_data = False)
 
-@mod.route('<the_year>/<the_team>')
-@mod.route('<the_year>/<the_team>/schedule')
+@mod.route('/<the_year>/<the_team>')
+@mod.route('/<the_year>/<the_team>/schedule')
 def schedule(the_year,the_team):
     class tbl_game:
         def __init__(self):
@@ -64,6 +64,7 @@ def schedule(the_year,the_team):
             self.away_team_link = ''
             self.outcome = ''
             self.date = ''
+            self.nuetral_site = False
         def __getitem__(self,key):
             return getattr(self,key)
 
@@ -128,6 +129,8 @@ def schedule(the_year,the_team):
                     this_g.outcome = ''
             elif key == 'date':
                 this_g.date = gm.date.strftime('%m-%d-%Y')
+
+        this_g.neutral_site = gm.neutral_site
         the_games.append(this_g)
 
     key_list = ['date','home_team','away_team','outcome']
@@ -136,24 +139,28 @@ def schedule(the_year,the_team):
         title = 'Home',
         hdrs = hdrs,
         data = the_games,
+        year = current_year,
         key_list = key_list,
         team = the_team,
         no_data = False)
 
 
 
-@mod.route('<the_year>/<the_team>/roster')
+@mod.route('/<the_year>/<the_team>/roster')
 def roster(the_year,the_team):
-    plrs = models.player.query.join(models.year).join(models.team).filter(and_(models.year.year==the_year,models.team.statsheet==the_team)).all()
+    team_q = models.team.query.join(models.year).filter(and_(models.year.year==the_year,models.team.statsheet==the_team)).first()
+    if team_q is None:
+        #if no players are found, but team is valid
+        return render_template('rosters.html',no_data = True,team = the_team)
 
+    players = team_q.players
+    plrs = []
+    for p in players:
+        plrs.append(p)
 
     if len(plrs) == 0:
-        if len(models.team.query.join(models.year).filter(and_(models.year.year==the_year,models.team.statsheet==the_team)).all()) > 0:
-            #if no players are found, but team is valid
-            return render_template('rosters.html',no_data = True,team = the_team)
-        else:
-            #if team isn't valid
-            return redirect(url_for('teams.teams'))
+        #if team isn't valid
+        return redirect(url_for('teams.teams'))
 
     #convert the data to list of lists
     key_list = ['name','pclass','height','position']
@@ -164,11 +171,12 @@ def roster(the_year,the_team):
         hdrs = hdrs,
         key_list = key_list,
         data = plrs,
+        year = current_year,
         team = the_team,
         no_data = False)
 
-@mod.route('<the_year>/<the_team>/stats/points', methods=['GET','POST'])
-@mod.route('<the_year>/<the_team>/stats', methods=['GET','POST'])
+@mod.route('/<the_year>/<the_team>/stats/points', methods=['GET','POST'])
+@mod.route('/<the_year>/<the_team>/stats', methods=['GET','POST'])
 def points(the_team):
     team_obj = tf.get_team_param(the_team,'statsheet')
     if team_obj == None:

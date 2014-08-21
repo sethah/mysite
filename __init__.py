@@ -22,3 +22,7 @@ from mysite.views import mod as mainModule
 app.register_blueprint(mainModule)
 app.register_blueprint(gameModule)
 app.register_blueprint(teamsModule)
+
+class current_season():
+    def __init__(self):
+        self.current_year = 2014

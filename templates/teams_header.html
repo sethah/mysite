@@ -12,7 +12,7 @@
 
         <ul class="nav nav-tabs">
             {% for href, id, caption in navigation_bar %}
-                <li{% if id == active_page %} class="active"{% endif %}><a href="{{ url_for(href|e,the_team = team) }}">{{ caption|e }}</a>
+                <li{% if id == active_page %} class="active"{% endif %}><a href="{{ url_for(href|e,the_team = team, the_year = year) }}">{{ caption|e }}</a>
                 </li>
             {% endfor %}
         </ul>

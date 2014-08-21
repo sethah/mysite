@@ -6,21 +6,15 @@ import team_info_functions as tf
 from sqlalchemy import and_, or_
 from datetime import datetime
 
+current_year = df.get_year()
+
 mod = Blueprint('main', __name__)
 
 @mod.route('/')
 @mod.route('/index')
 def index():
-    
-    return render_template('index.html')
 
-@mod.route('/alembic')
-def sql_test():
-    users = models.user.query.all()
-    ulist = []
-    for user in users:
-        ulist.append(user.name)
-    return str(len(users))
+    return render_template('index.html')
 
 @mod.app_errorhandler(404)
 def not_found_error(error):

@@ -36,7 +36,7 @@
         <tr>
             {% for key in key_list %}
                 {% if key == 'name' %}
-                    <td><a href="{{ url_for('teams.schedule', the_team = home_team_obj.statsheet) }}">{{ home_team_box[key] }}</a></td>
+                    <td><a href="{{ url_for('teams.schedule', the_team = home_team_obj.statsheet, the_year = current_year) }}">{{ home_team_box[key] }}</a></td>
                 {% else %}
                     <td>{{ home_team_box[key] }}</td>
                 {% endif %}
@@ -79,7 +79,7 @@
         <tr>
             {% for key in key_list %}
                 {% if key == 'name' %}
-                    <td><a href="{{ url_for('teams.schedule', the_team = away_team_obj.statsheet) }}">{{ away_team_box[key] }}</a></td>
+                    <td><a href="{{ url_for('teams.schedule', the_team = away_team_obj.statsheet, the_year = current_year) }}">{{ away_team_box[key] }}</a></td>
                 {% else %}
                     <td>{{ away_team_box[key] }}</td>
                 {% endif %}
