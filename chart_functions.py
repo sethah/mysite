@@ -3,6 +3,63 @@ import datetime
 import json
 import types
 
+def main():
+    c = google_chart('column')
+    print c.options
+    c.options['hAxis']['textStyle']['italic'] = "true"
+    print c.options
+class google_chart(object):
+    def __init__(self, chart_type, chartid):
+        self.chart_type = chart_type
+        self.data = []
+        self.data2 = []
+        self.formatters = []
+        self.chartid = 'chart-div '+chartid
+        self.options = self.init_options()
+
+    def init_options(self):
+        #defaults
+        width = "70%"
+        height = "60%"
+        fontSize = 14
+        titleFontSize = 16
+        legendPosition = 'in'
+        default_color = 'blue'
+        away_default_color = 'red'
+
+        options = {}
+        if self.chart_type == 'column':
+            options = {
+                "column": "col",
+                "chartArea": {"width": width, "height": height},
+                "colors": [default_color],
+                "hAxis": {"textStyle": {"italic": "false"}, "slantedTextAngle": "45", "fontSize": fontSize, "slantedText": "true", "titleFontSize": fontSize, "title": "Title", "titleTextStyle": {"italic": "false"}},
+                "titleFontSize": titleFontSize,
+                "vAxis": {"textStyle": {"italic": "false"}, "fontSize": fontSize, "titleTextStyle": {"italic": "false"}, "title": "Title", "titleFontSize": fontSize},
+                "legend": {"position": legendPosition}
+                }
+        elif self.chart_type == 'line':
+            options = {
+                "focusTarget": "category",
+                "chartArea": {"width": width, "height": height},
+                "hAxis": {"textStyle": {"italic": "false"}, "fontSize": fontSize, "titleFontSize": fontSize, "title": "Title", "titleTextStyle": {"italic": "false"}, "maxValue": "40", "minValue": "0"},
+                "tooltip": {"isHtml": "true"},
+                "colors": [default_color, away_default_color],
+                "titleFontSize": titleFontSize,
+                "vAxis": {"textStyle": {"italic": "false"}, "fontSize": fontSize, "titleFontSize": fontSize, "title": "Title", "titleTextStyle": {"italic": "false"}, "maxValue": "1.8", "minValue": "0"},
+                "line": "col",
+                "legend": {"position": legendPosition}
+                }
+        elif self.chart_type == 'pie_diff':
+            options = {
+                "diff": {"oldData": {"opacity": 0.99}, "innerCircle": {"borderFactor": 0.1}},
+                "sliceVisibilityThreshold": 0,
+                "titleFontSize": titleFontSize
+                }
+        return options
+    def js_options(self):
+        self.options = json.dumps(self.options)
+
 def chart_options(base_options = {},**kwargs):
     options = df.make_dict(
         font = 'Arial',
@@ -110,5 +167,6 @@ def game_time_to_datetime(game_time):
     seconds = int(round((game_time%1)*60))
 
     return str(minutes).zfill(2)+':'+str(seconds).zfill(2)
-
+if __name__ == "__main__":
+    main()
 

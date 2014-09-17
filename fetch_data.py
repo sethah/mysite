@@ -17,61 +17,140 @@ if project_home not in sys.path:
     sys.path = [project_home] + sys.path
 
 from sqlalchemy import and_, or_
+from sqlalchemy.sql import func, select
+from mysite import models, db
 from mysite import team_info_functions as tf
 from mysite import game_process_functions as gpf
 from mysite import data_functions as df
 from datetime import datetime
-from mysite import models
 from mysite import db
+import time
 from mysite import link_functions as lf
 import smtplib, traceback
+import cProfile
+import StringIO
+import pstats
+import contextlib
 
 current_year = df.get_year()
 
-#global year constant
-db_year = 2014
-
+@contextlib.contextmanager
+def profiled():
+    pr = cProfile.Profile()
+    pr.enable()
+    yield
+    pr.disable()
+    s = StringIO.StringIO()
+    ps = pstats.Stats(pr, stream=s).sort_stats('cumulative')
+    ps.print_stats()
+    # uncomment this to see who's calling what
+    # ps.print_callers()
+    #print s.getvalue()
+    print s.getvalue()[0:10000]
 def main():
     '''This function needs to do all the one time things that are required
     to begin a new database for a new season'''
 
-    '''q = models.game.query.join(models.year).filter(and_(models.year.year==current_year,models.game.home_team=='17', models.game.away_team=='Tougaloo')).all()
-    print len(q)
-    print q[0]
-    return None'''
-
     #use today's date
+    teams = models.team.query.all()
+    cnt = 0
+    '''for team in teams:
+        keys = team.__dict__.keys()
+        for k in keys:
+            att = getattr(team,k)
+            print k,att,type(att)
+            if type(att) == type(u'a'):
+                cnt += 1
+        team.statsheet = team.statsheet.encode('ascii','ignore')
+        if type(att) == type(u'a') and False:
+            print type(att.encode('ascii','ignore'))
+            setattr(team,k,att.encode('ascii','ignore'))
+            print type(getattr(team,k))
+        break
+    print cnt
+    db.session.commit()
+    try:
+        team.ncaaID = team.ncaaID.encode('ascii','ignore')
+        team.statsheet = team.statsheet.encode('ascii','ignore')
+        team.ncaa = team.ncaa.encode('ascii','ignore')
+        team.espn_name = team.espn_name.encode('ascii','ignore')
+        team.espn = team.espn.encode('ascii','ignore')
+        team.cbs1 = team.cbs1.encode('ascii','ignore')
+        team.cbs2 = team.cbs2.encode('ascii','ignore')
+        team.rpi_rank = team.rpi_rank.encode('ascii','ignore')
+        team.wins = team.wins.encode('ascii','ignore')
+        team.losses = team.losses.encode('ascii','ignore')
+        team.rpi = team.rpi.encode('ascii','ignore')
+        team.sos = team.sos.encode('ascii','ignore')
+        team.sos_rank = team.sos_rank.encode('ascii','ignore')
+        team.conference = team.conference.encode('ascii','ignore')
+    except:
+        continue'''
+    #db.session.commit()
+    with profiled():
+        a = time.time()
+        q1 = models.game.query.all()
+        #q1 = db.session.query(models.game.home_team).all()
+        b = time.time()
+        #q1 = select([models.pbp_stat]).where(models.pbp_stat.player=='NOAH VONLEH')
+        #db.engine.execute(q1)
+        c = time.time()
+    #print q1
+    print len(q1)
+    return None
+    q = models.pbp_stat.query.with_entities(models.pbp_stat.worth,models.pbp_stat.stat_type).join(models.game).filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID)).all()
+    #get all the games for this team
+    a = time.time()
+    q1 = models.pbp_stat.query.with_entities(models.pbp_stat.worth,models.pbp_stat.stat_type).join(models.game).filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID)).all()
+    b = time.time()
+    print b-a
+
+
+    s = 0
+    x=0
+    for st in q1.all():
+        if st.possession_time_adj < 10 and st.possession_time_adj>0:
+            s += st.home_score
+        elif st.possession_time_adj>=10 and st.possession_time_adj<=20:
+            x += st.home_score
+
+    print x
+    b = time.time()
+    #q2 = db.session.query(models.pbp_stat,func.sum(models.pbp_stat.home_score).label('total score'))
+    #q3 = models.pbp_stat.query
+    qa = db.session.query(models.pbp_stat,func.sum(models.pbp_stat.home_score).label('total score')).join(models.game).filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID)).filter(models.pbp_stat.possession_time_adj.between(0,10))
+    qb = db.session.query(models.pbp_stat,func.sum(models.pbp_stat.home_score).label('total score')).join(models.game).filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID)).filter(models.pbp_stat.possession_time_adj.between(10,20))
+    qc = db.session.query(models.pbp_stat,func.sum(models.pbp_stat.home_score).label('total score')).join(models.game).filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID)).filter(models.pbp_stat.possession_time_adj.between(20,30))
+    qd = db.session.query(models.pbp_stat,func.sum(models.pbp_stat.home_score).label('total score')).join(models.game).filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID)).filter(models.pbp_stat.possession_time_adj.between(30,40))
+    print qa.all(),qb.all(),qc.all(),qd.all()
+    c = time.time()
+    print c-b,b-a
+
+
+
+    return None
     the_date = datetime.today().date()
 
-    date_string = '11/10/2013'
+    date_string = '03/13/2014'
     the_date = datetime.strptime(date_string,'%m/%d/%Y').date()
-    #df.get_year_from_date(the_date)
-    #return None
-    #tf.get_scoreboard_games(date_string, current_year)
-    #return None
 
     update_db(the_date)
     return None
-    q = models.pbp_stat.query.join(models.game).join(models.year).filter(models.year.year==2014).all()
-    print len(q)
-
 
 def update_db(the_date):
     '''This function is to be called once a day to update the games in
-    the database. Does it need to handle failures of the previous day(s)
-    updates? Or would that be a manual thing that could be done? Have the function
-    send admin an email if the update fails.
+    the database.
     '''
     try:
         date_string = datetime.strftime(the_date,'%m/%d/%Y')
     except:
         return None
 
-    update_teams = []
+    #limit update games to certain teams, all teams if empty
+    update_teams = ['306']
 
     #store all the raw html for games for the date in the database
     store_raw_scoreboard_games_errors = store_raw_scoreboard_games(the_date,update_teams)
-    #return None
     if len(store_raw_scoreboard_games_errors) > 0:
         #call function to email the error list
         send_errors('raw game errors '+date_string,store_raw_scoreboard_games_errors)
@@ -79,8 +158,9 @@ def update_db(the_date):
             print e
         pass
         return None
-
+    #return None
     #update the team info (rpi, sos, etc...)
+    #TODO: PA won't connect to statsheet
     #tf.get_rpi()
 
     #process the day's raw games into data
@@ -91,7 +171,14 @@ def update_db(the_date):
         for e in pbp_errors:
             print e
         pass
+
 def process_raw_games(the_date,update_teams = []):
+    '''
+    @Function: process_raw_games(the_date,update_teams = [])
+    @Author: Seth Hendrickson, 8/26/14
+    @Summary: query the database for the raw games for a given date, and turn
+    them into play by play games.
+    '''
     errors = []
 
     try:
@@ -101,135 +188,69 @@ def process_raw_games(the_date,update_teams = []):
         return errors
 
     #query the raw database for all of the games for the date used
-    raw_q = models.raw_game.query.join(models.year).filter(and_(models.year.year==current_year,models.raw_game.date==the_date)).all()
-
+    q = tf.query_by_year('raw_game',current_year)
+    raw_q = q.filter(models.raw_game.date==the_date).all()
     if raw_q == None:
         errors.append('No raw games found for this date, %s' % date_string)
         return errors
 
     #query for the year object to add the games to
-    the_year =  models.year.query.filter(models.year.year==current_year).first()
-
+    the_year = tf.query_by_year('year',current_year).first()
     if the_year == None:
         errors.append('No year found for pbp processing')
         return errors
 
     for raw_game in raw_q:
+        #get the database year from the game's date
         game_year = df.get_year_from_date(raw_game.date)
 
         if update_teams != []:
+            #skip teams that are not in the update list
             if raw_game.home_team not in update_teams and raw_game.away_team not in update_teams:
-                #print raw_game.home_team, raw_game.away_team
                 continue
         try:
-            #see if the pbp game already exists
-            this_game = models.game.query.filter(or_(and_(models.game.date==the_date,models.game.home_team==raw_game.home_team,models.game.away_team==raw_game.away_team),
-                                                and_(models.game.date==the_date,models.game.away_team==raw_game.home_team,models.game.home_team==raw_game.away_team))).first()
+            #get the game or create it, and delete existing stats
+            pbp_game, new_game = models.game.get_or_create(the_date,raw_game.home_team,raw_game.away_team, raw_game.home_outcome)
+            if new_game:
+                pbp_game.neutral_site = tf.is_neutral(pbp_game.date,pbp_game.home_team,pbp_game.away_team)
+            pbp_game.box_stats.delete()
+            pbp_game.pbp_stats.delete()
+            db.session.flush()
 
-            #if both teams don't exist in the database, then assign a win/loss and continue
-            home_team_obj = models.team.query.join(models.year).filter(and_(models.year.year==game_year,models.team.ncaaID==raw_game.home_team)).first()
-            away_team_obj = models.team.query.join(models.year).filter(and_(models.year.year==game_year,models.team.ncaaID==raw_game.away_team)).first()
-            print raw_game.home_team, raw_game.away_team, game_year, raw_game.date
-
-            if this_game != None:
-                #the game exists
-                '''print raw_game.home_team, raw_game.away_team
-                continue'''
-                if this_game.neutral_site:
-                    #if it's a neutral site game, then update the home and away teams
-                    this_game.home_team = raw_game.home_team
-                    this_game.away_team = raw_game.away_team
-                pbp_game = this_game
-
-                #delete any box stats or pbp stats from the game
-                pbp_game.box_stats.delete()
-                pbp_game.pbp_stats.delete()
-                db.session.flush()
-            else:
-                print 'game no exist'
-                #the game doesn't exist
-                pbp_game = models.game()
-                pbp_game.home_team = raw_game.home_team
-                pbp_game.away_team = raw_game.away_team
-                pbp_game.home_outcome = raw_game.home_outcome
-                pbp_game.date = raw_game.date
-                #TODO
-
-                #check if it is a neutral site game
-                    #check the team's schedule page for this date
-
+            #check if one of the teams is not in the database, process wout stats
+            home_team_obj = tf.query_by_year('team',game_year).filter(models.team.ncaaID==raw_game.home_team).first()
+            away_team_obj = tf.query_by_year('team',game_year).filter(models.team.ncaaID==raw_game.away_team).first()
             if home_team_obj == None or away_team_obj == None:
-                pbp_rows = raw_game.raw_pbp_stats.all()
-                pbp_rows = [pbp_row.soup_string for pbp_row in pbp_rows]
-                pbp_data = gpf.get_play_by_play(raw_game.home_team,raw_game.away_team,raw_game.date, pbp_rows,[])
-
-                #assign some score attributes to the game
-                pbp_game.home_outcome = gpf.get_home_outcome(pbp_data)
-                pbp_game.home_score = int(pbp_data[-1].home_score)
-                pbp_game.away_score = int(pbp_data[-1].away_score)
-                print pbp_game
-                db.session.flush()
+                no_stats(raw_game, pbp_game)
                 db.session.commit()
-                print 'no stats'
                 continue
+
         except Exception, e:
             traceback.print_exc()
             #error instantiating new pbp game
             errors.append('failed to instantiate new game for: %s, %s, %s' % (raw_game.home_team, raw_game.away_team, date_string))
             continue
 
-
         try:
-            #process the raw box score data for the game
-            box_rows = models.raw_box.query.join(models.raw_game).filter(and_(models.raw_game.home_team==raw_game.home_team,models.raw_game.away_team==raw_game.away_team,models.raw_game.date==raw_game.date)).all()
-            if box_rows == None:
-                #TODO: should I do something different here, to just say that there weren't any raw data rows?
-                assert False
-            box_rows = [box_row.soup_string for box_row in box_rows]
-
-            box_data = gpf.get_box_stat_game(raw_game.home_team,raw_game.away_team,raw_game.home_outcome,raw_game.date,box_rows)            #store it
-            for st in box_data:
-                #continue
-                pbp_game.box_stats.append(st)
-
-            #assign the starters for the game
-            starters = []
-            for plr in box_data:
-                if plr.started:
-                    starters.append(plr.name)
-            print 'box stats successful'
+            starters = process_box(raw_game, pbp_game)
         except Exception, e:
             traceback.print_exc()
             #problem processing box data
-            box_error_msg = "box stats failed: %s, %s, %s" % (date_string, raw_game.home_team, raw_game.away_team)
+            box_error_msg = "box stats failed: %s, %s, %s" % (raw_game.date_string(), raw_game.home_team, raw_game.away_team)
             db.session.rollback()
             errors.append(box_error_msg)
             continue
 
         try:
-            pbp_rows = models.raw_play.query.join(models.raw_game).filter(and_(models.raw_game.home_team==raw_game.home_team,models.raw_game.away_team==raw_game.away_team,models.raw_game.date==raw_game.date)).all()
-            if pbp_rows == None:
-                #TODO: should I do something different here, to just say that there weren't any raw data rows?
-                assert False
-            pbp_rows = [pbp_row.soup_string for pbp_row in pbp_rows]
-            #process the play by play data for the game
-            pbp_data = gpf.get_play_by_play(raw_game.home_team,raw_game.away_team,raw_game.date, pbp_rows,starters)
-
-            #assign some score attributes to the game
-            pbp_game.home_outcome = gpf.get_home_outcome(pbp_data)
-            pbp_game.home_score = int(pbp_data[-1].home_score)
-            pbp_game.away_score = int(pbp_data[-1].away_score)
-
-            for st in pbp_data:
-                pbp_game.pbp_stats.append(st)
-            print 'pbp stats successful'
+            process_pbp(raw_game, pbp_game, starters)
         except Exception, e:
             traceback.print_exc()
             #problem processing box data
-            pbp_error_msg = "pbp stats failed: %s, %s, %s" % (date_string, raw_game.home_team, raw_game.away_team)
+            pbp_error_msg = "pbp stats failed: %s, %s, %s" % (raw_game.date_string(), raw_game.home_team, raw_game.away_team)
             db.session.rollback()
             errors.append(pbp_error_msg)
             continue
+
         #save to database
         the_year.games.append(pbp_game)
         db.session.flush()
@@ -243,13 +264,76 @@ def process_raw_games(the_date,update_teams = []):
 
         #check the possession time
         poss_time, poss_error = gpf.check_poss_time(pbp_game, current_year)
-        if poss_error > 30:
+        if abs(poss_error) > 30:
             errors.append('possesion time error: %s, %s, %s, %s, %s' % (poss_time, poss_error, pbp_game.home_team, pbp_game.away_team, date_string))
 
         db.session.commit()
     return errors
+def no_stats(raw_game, pbp_game):
+    #if both teams don't exist in the database, then assign a win/loss and continue
+    pbp_rows = raw_game.raw_pbp_stats.all()
+    pbp_rows = [pbp_row.soup_string for pbp_row in pbp_rows]
+    pbp_data = gpf.get_play_by_play(raw_game.home_team,raw_game.away_team,raw_game.date, pbp_rows,[])
 
+    #assign some score attributes to the game
+    pbp_game.home_outcome = gpf.get_home_outcome(pbp_data)
+    pbp_game.home_score = int(pbp_data[-1].home_score)
+    pbp_game.away_score = int(pbp_data[-1].away_score)
+
+    db.session.flush()
+def process_pbp(raw_game, pbp_game, starters):
+    pbp_rows = models.raw_play.query.join(models.raw_game).filter(and_(models.raw_game.home_team==raw_game.home_team,models.raw_game.away_team==raw_game.away_team,models.raw_game.date==raw_game.date)).all()
+    if pbp_rows == None:
+        assert False
+
+    #get list of pbp row strings
+    pbp_rows = [pbp_row.soup_string for pbp_row in pbp_rows]
+
+    #process the play by play data for the game
+    pbp_data = gpf.get_play_by_play(raw_game.home_team,raw_game.away_team,raw_game.date, pbp_rows,starters)
+
+    #assign some score attributes to the game
+    if raw_game.home_outcome != None:
+        pbp_game.home_outcome = raw_game.home_outcome
+    else:
+        pbp_game.home_outcome = gpf.get_home_outcome(pbp_data)
+    pbp_game.home_score = int(pbp_data[-1].home_score)
+    pbp_game.away_score = int(pbp_data[-1].away_score)
+
+    for st in pbp_data:
+        pbp_game.pbp_stats.append(st)
+    print 'pbp stats successful'
+    db.session.flush()
+def process_box(raw_game, pbp_game):
+    #process the raw box score data for the game
+    box_rows = models.raw_box.query.join(models.raw_game).filter(and_(models.raw_game.home_team==raw_game.home_team,models.raw_game.away_team==raw_game.away_team,models.raw_game.date==raw_game.date)).all()
+    if box_rows == None:
+        assert False
+
+    #get a list of the box row strings
+    box_rows = [box_row.soup_string for box_row in box_rows]
+
+    #process the rows of the box data into box stat objects
+    box_data = gpf.raw_box_to_stats(raw_game.home_team,raw_game.away_team,raw_game.home_outcome,raw_game.date,box_rows)            #store it
+    for st in box_data:
+        pbp_game.box_stats.append(st)
+
+    #assign the starters for the game
+    starters = []
+    for plr in box_data:
+        if plr.started:
+            starters.append(plr.name)
+    print 'box stats successful'
+    db.session.flush()
+
+    return starters
 def store_raw_scoreboard_games(the_date, teamIDs = []):
+    '''
+    @Function: store_raw_scoreboard_games(the_date, teamIDs = [])
+    @Author: Seth Hendrickson, 8/26/14
+    @Summary: get all the games from the ncaa website scoreboard for a given date,
+    then grab all the raw data from each game and store it in the database
+    '''
 
     errors = []
     try:
@@ -258,10 +342,12 @@ def store_raw_scoreboard_games(the_date, teamIDs = []):
         #bad date, failed getting any games
         errors.append('bad date given')
         return errors
+    db_year = df.get_year_from_date(the_date)
 
     try:
         #get the list of teams, box game links, and pbp links from the day's scoreboard
         teams, box_links, links, msg = tf.get_scoreboard_games(date_string, current_year)
+        print teams
 
         if teams == None:
             #getting the scoreboard links failed, failed getting any games
@@ -284,74 +370,58 @@ def store_raw_scoreboard_games(the_date, teamIDs = []):
     #iterate through games
     for j in range(len(teams)):
         try:
-            #these will be error free because of the error checking previously
-            #TODO: the teams are going to be ncaaIDs coming form tf.get_scoreboard_games, not ncaa names, so the latter part of this will fail if the team is in the db
-            team1 = teams[j][0]
-            team1_obj = models.team.query.join(models.year).filter(and_(models.year.year==current_year,models.team.ncaaID==team1)).first()
-            team2 = teams[j][1]
-            team2_obj = models.team.query.join(models.year).filter(and_(models.year.year==current_year,models.team.ncaaID==team2)).first()
-            link = links[j]
-            box_link = box_links[j]
-
-            if team1_obj == None:
-                team1_ncaa = team1
-                team1_ncaaID = team1
-                print team1
-            else:
-                team1_ncaa = team1_obj.ncaa
-                team1_ncaaID = team1_obj.ncaaID
-            if team2_obj == None:
-                team2_ncaa = team2
-                team2_ncaaID = team2
-                print team2
-            else:
-                team2_ncaa = team2_obj.ncaa
-                team2_ncaaID = team2_obj.ncaaID
-        except:
+            team1_ncaa, team1_ncaaID, team2_ncaa, team2_ncaaID = get_scoreboard_teams(teams[j], db_year)
+        except Exception, e:
+            traceback.print_exc()
             errors.append('failed getting soup data at index: ' + str(j))
             #continue in the loop
             continue
 
-        store_raw_data_errors = store_raw_game(box_link,link,the_date,date_string,team1_ncaa,team1_ncaaID,team2_ncaa,team2_ncaaID)
+        store_raw_data_errors = store_raw_game(box_links[j],links[j],the_date,date_string,team1_ncaa,team1_ncaaID,team2_ncaa,team2_ncaaID)
         errors += store_raw_data_errors
         if len(store_raw_data_errors) == 0:
             #data stored successfully
             print team1_ncaa, team2_ncaa
-
-
     return errors
+def get_scoreboard_teams(teams, db_year):
+    team1 = teams[0]
+    q = tf.query_by_year('team',db_year)
+    team1_obj = q.filter(models.team.ncaaID==team1).first()
 
+    team2 = teams[1]
+    q = tf.query_by_year('team',db_year)
+    team2_obj = q.filter(models.team.ncaaID==team2).first()
+
+    if team1_obj == None:
+        team1_ncaa = team1
+        team1_ncaaID = team1
+    else:
+        team1_ncaa = team1_obj.ncaa
+        team1_ncaaID = team1_obj.ncaaID
+    if team2_obj == None:
+        team2_ncaa = team2
+        team2_ncaaID = team2
+    else:
+        team2_ncaa = team2_obj.ncaa
+        team2_ncaaID = team2_obj.ncaaID
+
+    return team1_ncaa, team1_ncaaID, team2_ncaa, team2_ncaaID
 def store_raw_game(box_link, pbp_link, date,date_string, team1_ncaa, team1_ncaaID, team2_ncaa, team2_ncaaID):
     '''Given box score link, pbp link, date, and two teams, this function
     stores the raw html rows in the database'''
 
+    db_year = df.get_year_from_date(date)
 
     #msg holds information about the success of this function
     errors = []
 
-    #check if game exists
-    game_exists_q = models.raw_game.query.filter(or_(and_(models.raw_game.home_team==team1_ncaaID,models.raw_game.away_team==team2_ncaaID,models.raw_game.date==date),
-                                      and_(models.raw_game.home_team==team2_ncaaID,models.raw_game.away_team==team1_ncaaID,models.raw_game.date==date))).first()
-
-    #if the game was found in the database then delete previous stats for it
-    if game_exists_q != None:
-        this_game = game_exists_q
-        this_game.raw_box_stats.delete()
-        this_game.raw_pbp_stats.delete()
-    else:
-        #create the new raw_game instance
-        this_game = models.raw_game()
-        this_game.date = date
+    this_game = models.raw_game.get_or_create(date, team1_ncaaID, team2_ncaaID)
+    this_game.raw_box_stats.delete()
+    this_game.raw_pbp_stats.delete()
 
     #query for the year object
-    the_year =  models.year.query.filter(models.year.year==current_year).first()
-
-    if the_year == None:
-        #no year found, create it
-        the_year = models.year()
-        the_year.year = db_year
-        db.session.add(the_year)
-        db.session.commit()
+    the_year = models.year.get_or_create(db_year)
+    db.session.flush()
 
     try:
         #get the box_data
@@ -377,6 +447,8 @@ def store_raw_game(box_link, pbp_link, date,date_string, team1_ncaa, team1_ncaaI
         #get the pbp_data
         pbp_soup = lf.get_soup(pbp_link)
         rows = tf.get_pbp_rows(pbp_soup)
+        this_game.home_outcome = tf.get_home_outcome(rows)
+
         if rows == None:
             #throw an error
             assert False
@@ -390,19 +462,11 @@ def store_raw_game(box_link, pbp_link, date,date_string, team1_ncaa, team1_ncaaI
             this_game.raw_pbp_stats.append(raw_pbp_row)
 
         #get the home and away teams from pbp link
-        home_team, away_team = tf.home_and_away_teams(pbp_soup,team1_ncaa,team2_ncaa)
+        #team1_ncaa, team1_ncaaID, team2_ncaa, team2_ncaaID
+        this_game.home_team, this_game.away_team = tf.home_and_away_teams(pbp_soup,team1_ncaa, team1_ncaaID, team2_ncaa, team2_ncaaID)
 
-        if home_team != None:
-            if home_team == team1_ncaa:
-                this_game.home_team = team1_ncaaID
-                this_game.away_team = team2_ncaaID
-            else:
-                this_game.home_team = team2_ncaaID
-                this_game.away_team = team1_ncaaID
-        else:
-            errors.append('error with home and away teams')
-            assert False
-    except:
+    except Exception:
+        traceback.print_exc()
         #error retrieving pbp rows
         errors.append('error retrieving pbp rows: '+",".join([team1_ncaa,team2_ncaa,date_string]))
 
@@ -418,7 +482,6 @@ def send_mail(to_address,subject,msg):
     while attempts < 3:
         try:
             from_address = 'stats.mbb@gmail.com'
-            #to_address  = 'seth.hendrickson16@gmail.com'
 
             message = 'Subject: %s\n\n%s' % (subject, msg)
 
@@ -444,14 +507,7 @@ def send_errors(subject,errors):
             msg += e + '\n'
         except:
             continue
-    send_mail('seth.hendrickson16@gmail.com',subject,msg)
-#custom errors
-class rawGameException(Exception):
-    pass
-class rawGamesScoreboardException(Exception):
-    pass
-class pbpGameException(Exception):
-    pass
+    send_mail('stats.mbb@gmail.com',subject,msg)
 
 if __name__ == "__main__":
     main()

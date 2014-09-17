@@ -8,6 +8,7 @@ import time
 from mysite import models
 from mysite import db
 from mysite import team_info_functions as tf
+from mysite import data_functions as df
 import math
 from sqlalchemy import and_,or_
 from bs4 import BeautifulSoup
@@ -15,9 +16,7 @@ from bs4 import BeautifulSoup
 #-------------------------functions----------------------#
 def get_play_by_play(home_team, away_team, date, rows, starters):
     '''
-    Function: get_play_by_play(home_team, away_team, date, rows, starters)
-    Author: S. Hendrickson 1/11/14
-    Return: This function performs a variety of subfunctions in order to process the
+    This function performs a variety of subfunctions in order to process the
     play-by-play data. It turns the textual play descriptions into a parseable
     data table with a multitude of information for each play
     '''
@@ -25,8 +24,6 @@ def get_play_by_play(home_team, away_team, date, rows, starters):
     #make a list to hold all the stat instancess
     st_list = []
     g = 0
-
-    #get the player names
 
     #PBP data not available if there are <100 rows
     if len(rows) > 100:
@@ -56,9 +53,7 @@ def get_play_by_play(home_team, away_team, date, rows, starters):
     return pbp_data
 def string_to_stats(string, names, last_names, first_names, teamID, source):
     '''
-    Function: string_to_stats(string, player_list, last_names, teamID, source)
-    Author: S. Hendrickson 1/11/14
-    Return: This function takes a textual description of a play and returns
+    This function takes a textual description of a play and returns
     the player, stat type, and a stat tag. The stat tag is used to convey
     more information about some stat types.
     '''
@@ -161,7 +156,6 @@ def string_to_stats(string, names, last_names, first_names, teamID, source):
         if stat in string:
             stat_type = stat
             break
-
     #assign stat tag if the stat type is a point or rebound
     stat_tag = ''
     if stat_type == 'MADE':
@@ -175,7 +169,6 @@ def string_to_stats(string, names, last_names, first_names, teamID, source):
                 stat_tag = ptag_list[i * 2]
                 break
             i = i + 1
-
     elif stat_type == 'MISSED':
         #change stat type to 'POINT'
         stat_type = 'POINT'
@@ -187,7 +180,6 @@ def string_to_stats(string, names, last_names, first_names, teamID, source):
                 stat_tag = ptag_list[i * 2 + 1]
                 break
             i = i + 1
-
     elif stat_type == 'REBOUND':
         #assign stat tag a number to indicate the type of rebound
         if 'OFFENSIVE' in string:
@@ -204,9 +196,7 @@ def string_to_stats(string, names, last_names, first_names, teamID, source):
 
 def possession_change(pbp_data, i):
     '''
-    Function: possession_change(stats, i)
-    Author: S. Hendrickson 1/11/14
-    Return: This function detects a possession change from a given play
+    This function detects a possession change from a given play
     '''
     possession_change = False
     #possession change on a make, def reb, turnover, assist, steal, or a charge
@@ -215,27 +205,20 @@ def possession_change(pbp_data, i):
     return possession_change
 def get_row_data(row):
     '''
-    Function: get_row_data(row)
-    Author: S. Hendrickson 1/11/14
-    Return: This function takes a play by play row and splits it up into
+    This function takes a play by play row and splits it up into
     two play strings (one of which should be empty), two scores, and a
     time.
     '''
     tds = row.findAll('td')
-
-
     try:
         #get the time
         tTime = tds[0].get_text().encode('utf-8')
         tTime = tTime[0:5]
-
-
         tPlay1 = tds[1].get_text().encode('utf-8')
         playID = 1
         #if there is text in the first column, then playID = 0, 1 otherwise
         if len(tPlay1)>2:
             playID = 0
-
         #convert score in form '22-23' to a score and opp score
         rawScore = tds[2].get_text().encode('utf-8')
         dash = rawScore.find('-')
@@ -254,15 +237,11 @@ def get_row_data(row):
     return playID,tTime,tPlay1,tPlay2,tScore1,tScore2
 def basic_data_pbp(rows,home_team, away_team, starters):
     '''
-    Function: basic_data_pbp(rows,player_names,source)
-    Author: S. Hendrickson 1/11/14
-    Return: This function iterates through play by play rows and derives basic
+    This function iterates through play by play rows and derives basic
     statistical data. The data is stored in an instance of the stat class and
     returned.
     '''
-
     i = 0
-
     pbp_data = []
 
     #query for all players on the home team, store in hnames
@@ -498,11 +477,18 @@ def basic_data_pbp(rows,home_team, away_team, starters):
                 #possession is with the team that made the assist
                 st.possession = teamID
                 #assign a point value for the assist
-                st.value = pbp_data[i - 1].value
-                #recipient of the assist was the player who made the previous play
-                st.recipient = pbp_data[i - 1].player
-                st.point_type = pbp_data[i - 1].point_type
-                pbp_data[i - 1].assisted = 1
+                try:
+                    st.value = pbp_data[i - 1].value
+                    #recipient of the assist was the player who made the previous play
+                    st.recipient = pbp_data[i - 1].player
+                    st.point_type = pbp_data[i - 1].point_type
+                    pbp_data[i - 1].assisted = 1
+                except:
+                    #assists shouldn't be first stat of game
+                    continue
+
+                if st.value != 2 and st.value != 3:
+                    st.value = 2
 
             elif stat_type == 'FOUL':
                 st.possession = abs(teamID - 1)
@@ -887,10 +873,9 @@ def correct_lineup(stats, name, index, team):
         print index, len(stats)
         return stats
 
-#----------------------------------------------------------------------
-#Box stat functions
-#----------------------------------------------------------------------
-def get_box_stat_game(home_team, away_team, home_outcome, date, rows):
+def raw_box_to_stats(home_team, away_team, home_outcome, date, rows):
+
+    db_year = df.get_year_from_date(date)
 
     #these headers are the headers used by stats.ncaa's box scores
     hdrs = ['Player', 'Pos','MP','FGM','FGA','3FG','3FGA','FT','FTA','PTS','ORebs','DRebs','Tot Reb','AST','TO','STL','BLK','Fouls']
@@ -955,15 +940,27 @@ def get_box_stat_game(home_team, away_team, home_outcome, date, rows):
                 if st.pts == max_score:
                     #this team won the game
                     if home_outcome == 'W':
-                        st.name = tf.get_team_param(home_team,'ncaa','statsheet')
+                        the_teamID = home_team
                     else:
-                        st.name = tf.get_team_param(away_team,'ncaa','statsheet')
+                        the_teamID = away_team
+
+                    q = tf.query_by_year('team',db_year)
+                    team_obj = q.filter(models.team.ncaaID==the_teamID).first()
+                    if team_obj == None:
+                        continue
+                    st.name = team_obj.espn_name
                 else:
                     #this team lost the game
                     if home_outcome == 'L':
-                        st.name = tf.get_team_param(home_team,'ncaa','statsheet')
+                        the_teamID = home_team
                     else:
-                        st.name = tf.get_team_param(away_team,'ncaa','statsheet')
+                        the_teamID = away_team
+
+                    q = tf.query_by_year('team',db_year)
+                    team_obj = q.filter(models.team.ncaaID==the_teamID).first()
+                    if team_obj == None:
+                        continue
+                    st.name = team_obj.espn_name
             else:
                 continue
         except:
@@ -1011,6 +1008,7 @@ def check_game_stats(pbp_game, the_year):
     errors = []
 
     home_team = pbp_game.home_team
+    #home_team_obj = models.team.query
     away_team = pbp_game.away_team
 
     #get the home and away rosters
@@ -1110,7 +1108,7 @@ def check_poss_time(pbp_game, the_year):
         poss_error = round(poss_time/300.0)*300
         return poss_time, poss_error
     else:
-        return None, None
+        return poss_time, 0
 def get_home_outcome(pbp_data):
     try:
         if int(pbp_data[-1].home_score) > int(pbp_data[-1].away_score):

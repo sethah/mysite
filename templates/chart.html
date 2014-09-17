@@ -91,3 +91,8 @@
       }
     </script>
 {%- endmacro %}
+{% macro google_chart_options(chart_type) -%}
+    {% if chart_type == 'column' %}
+        var x = 4;
+    {% endif %}
+{%- endmacro %}

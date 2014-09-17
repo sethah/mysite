@@ -1,4 +1,0 @@
-from mysite import db
-from mysite import models
-
-db.create_all()

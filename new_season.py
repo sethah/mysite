@@ -15,7 +15,6 @@ from mysite import models
 from mysite import db
 from mysite import link_functions as lf
 from mysite import team_info_functions as tf
-#from mysite import current_year
 from sqlalchemy import and_, or_
 import datetime
 import traceback
@@ -64,7 +63,7 @@ def main():
 def yearly_update_schedules(year_arg,q_offset,q_limit=10):
     all_teams = models.team.query.join(models.year).filter(models.year.year==year_arg).limit(q_limit).offset(q_offset).all()
     for team in all_teams:
-        locations, opponents, dates = get_ncaa_schedule_data(team.ncaaID)
+        locations, opponents, dates = tf.get_ncaa_schedule_data(team.ncaaID)
         print team.statsheet
 
         if locations == None:
@@ -372,85 +371,6 @@ def store_rosters(teamIDs, year_arg):
         except:
             print 'failed getting roster for team: %s' % the_team.statsheet
             continue
-def get_ncaa_schedule_data(teamID):
-    '''
-    @Function: get_ncaa_schedule_data(teamID)
-    @Author: S. Hendrickson 3/5/14
-    @Return: This function returns various lists holding information
-    about the team's games.
-    '''
-    #TODO: error handling
 
-    link = 'http://stats.ncaa.org/team/index/11540?org_id='+teamID
-    soup = lf.get_soup(link)
-    if soup == None:
-        print 'bad html: %s' % teamID
-        return None
-
-    try:
-        #get the table that contains 'Schedule' in its first row
-        tables = soup.findAll('table')
-        tables = [table for table in tables if 'Schedule' in table.findAll('tr')[0].get_text()]
-        table = tables[0]
-
-        #get all the game rows that have been played
-        rows = table.findAll('tr')
-
-        #get all rows with more than zero cells and with a 'W' or an 'L' in the last cell
-        rows = [row for row in rows if len(row.findAll('td', {'class' : 'smtext'})) > 0 and ('W' in row.findAll('td')[-1].get_text() or 'L' in row.findAll('td')[-1].get_text())]
-    except:
-        #assign rows empty list, will return empty lists for data
-        rows = []
-
-    dates = []
-    opponents = []
-    locations = []
-    fmt =  '%m/%d/%Y'
-    for row in rows:
-        try:
-            #get the date
-            tds = row.findAll('td')
-            date = datetime.datetime.strptime(tds[0].get_text(),fmt)
-            dates.append(date)
-
-            #get the location
-            string = str(tds[1].get_text())
-            string = string.strip()
-
-            if string[0:1] == '@':
-                location = 'Away'
-            elif '@' in string:
-                #if @ is not the first character, it is a neutral game
-                location = 'Neutral'
-            else:
-                location = 'Home'
-
-            #get the opponent
-            try:
-                opponent = tds[1].find('a')['href']
-                opponent = opponent[opponent.find('=')+1:len(opponent)]
-
-                #check to see if this team exists in the database
-                opp_q = models.team.query.filter(models.team.ncaaID==opponent).first()
-                if opp_q is None:
-                    #opponent not in database, so use a string instead
-                    assert False
-            except:
-                opponent = tds[1].get_text().replace('@','').strip()
-
-            #append data to the lists
-            locations.append(location)
-            opponents.append(opponent)
-        except:
-            #there may be some cases where it grabs a bad row, skip it
-            continue
-
-    if len(locations) == len(opponents) and len(locations) == len(dates):
-        return locations, opponents, dates
-    else:
-        #something went wrong
-        print len(locations), len(opponents), len(dates)
-        print 'lists uneven in length for team %s' % teamID
-        return None, None, None
 if __name__ == "__main__":
     main()

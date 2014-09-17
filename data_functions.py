@@ -1,10 +1,14 @@
 
 from datetime import datetime
 from flask import flash
-from mysite import models
+#from mysite import models
 from sqlalchemy import and_, or_
-
-#print myround(2435,300)
+def main():
+    l = ['a', 'b', 'c']
+    d = dict((k, [0, 0]) for k in l)
+    print d
+    return None
+    print dict.fromkeys(['x','y'],{'val':0})
 def get_year():
     current_year = 2014
     return current_year
@@ -62,6 +66,7 @@ def time_hist_to_google_data(the_dict,hdr,interval,divide_by = ''):
 def make_dict(**kwargs):
     return kwargs
 def shot_type_convert(shot_type):
+    shot_string = ''
     if shot_type == 'DM' or shot_type == 'DMS':
         shot_string = 'Dunk'
     elif shot_type == 'FTM' or shot_type == 'FTMS':
@@ -93,7 +98,7 @@ def current_team(teamID, team, home_team, away_team):
         else:
             current_team = 'team'
     return current_team
-def custom_filter(query, filter_field, filter_field_value, filter_value):
+'''def custom_filter(query, filter_field, filter_field_value, filter_value):
     if filter_field == 'location':
         if filter_field_value == 'Home':
             q = query.filter(models.game.home_team == filter_value)
@@ -120,4 +125,6 @@ def process_filter(filter_fields, form, q, **kwargs):
         elif field == 'outcome':
             q = custom_filter(q, field, form['outcome'], kwargs['team_obj'].ncaaID)
 
-    return q
+    return q'''
+if __name__ == '__main__':
+    main()

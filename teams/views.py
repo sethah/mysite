@@ -1,12 +1,13 @@
 from flask import render_template, flash, redirect, session, url_for, request, g, send_file, Blueprint
-from forms import LoginForm
-from mysite import models
+from mysite import models, db
 import chart_functions as cf
 import error_functions as ef
 import data_functions as df
 import team_info_functions as tf
 from sqlalchemy import and_, or_
+from sqlalchemy.sql import func
 from datetime import datetime
+import time
 import json
 
 current_year = df.get_year()
@@ -144,8 +145,6 @@ def schedule(the_year,the_team):
         team = the_team,
         no_data = False)
 
-
-
 @mod.route('/<the_year>/<the_team>/roster')
 def roster(the_year,the_team):
     team_q = models.team.query.join(models.year).filter(and_(models.year.year==the_year,models.team.statsheet==the_team)).first()
@@ -177,7 +176,8 @@ def roster(the_year,the_team):
 
 @mod.route('/<the_year>/<the_team>/stats/points', methods=['GET','POST'])
 @mod.route('/<the_year>/<the_team>/stats', methods=['GET','POST'])
-def points(the_team):
+def points(the_year, the_team):
+    a = time.time()
     team_obj = tf.get_team_param(the_team,'statsheet')
     if team_obj == None:
         return render_template('team_points.html',no_data = True,team = the_team)
@@ -186,11 +186,25 @@ def points(the_team):
     if request.method == 'POST':
         q = models.pbp_stat.query.join(models.game).filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID))
         q = df.process_filter(filter_fields, request.form, q, team_obj = team_obj)
-
         pbp_data = q.all()
     else:
         #get the box and play by play data
+        #a = datetime.now()
+        x = time.time()
         pbp_data = models.pbp_stat.query.join(models.game).filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID)).all()
+        y = time.time()
+        #q = models.pbp_stat.query.join(models.game).filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID))
+        #q = q.filter(or_(and_(models.game.home_team==team_obj.ncaaID,models.pbp_stat.teamID==0),and_(models.game.away_team==team_obj.ncaaID,models.pbp_stat.teamID==1)))
+        q = db.session.query(func.sum(models.pbp_stat.home_score).label("max_score"))
+        l = []
+        for r in q.all():
+            l.append(r)
+        #return str(l)
+        z = time.time()
+        #pbp_data = models.pbp_stat.query.with_entities(models.pbp_stat.worth,models.pbp_stat.time,models.pbp_stat.time,models.pbp_stat.possession_time,models.pbp_stat.possession_time_adj).join(models.game)
+        #pbp_data.filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID)).all()
+        q = tf.query_by_year('pbp_stat',current_year,'game')
+        q = q.filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID))
 
     if len(pbp_data) == 0:
         return render_template('team_points.html',no_data = True,team = the_team)
@@ -199,143 +213,29 @@ def points(the_team):
     default_color = 'blue'
     opp_default_color = 'red'
 
-    #game time args
-    game_time_interval = 5
-    game_end_time = int(df.myround(pbp_data[-1].time,5,'up'))
-    game_time_keys = range(45)[0::game_time_interval]
-
-    #possession time args
-    poss_time_interval = 5
-    max_possession_time = 40
-    poss_time_keys = range(max_possession_time)[0::game_time_interval]
-
-
-    #create dicts to hold data
-    diff_dict = {}
-    poss_time_dict = {}
-    shot_type_dict = {}
-    for key in game_time_keys:
-        diff_dict[key] = {'val':0,'color':default_color}
-
-    tms = ['opp','team']
-    #create possession time dicts
-    for tm in tms:
-        poss_time_dict[tm] = {}
-        shot_type_dict[tm] = {}
-        for shot in df.shot_list():
-            shot_type_dict[tm][shot+'s'] = {'val': 0}
-        if tm == 'team':
-            color = default_color
-        else:
-            color = opp_default_color
-        for key in poss_time_keys:
-            poss_time_dict[tm][key] = {'val':0,'poss':0,'color':color}
-
-
-    #loop through the data only once
-    for st in pbp_data:
-        cur_team = df.current_team(st.teamID,team_obj.ncaaID,st.game.home_team,st.game.away_team)
-        if cur_team == None:
-            continue
-
-        #find the appropriate bins for this data point
-        game_time_bin = df.myround(st.time, game_time_interval)
-        poss_time_bin = df.myround(st.possession_time_adj,poss_time_interval)
-
-        #track possessions
-        if poss_time_bin <= max_possession_time-poss_time_interval:
-            if st.possession_time > -1:
-                poss_time_dict[cur_team][poss_time_bin]['poss'] += 1
-            if st.worth > 0:
-                poss_time_dict[cur_team][poss_time_bin]['val'] += st.worth
-        #differential score
-        if st.worth > 0:
-            if cur_team == 'team':
-                #home team scored
-                diff_dict[game_time_bin]['val'] += st.worth
-            else:
-                #away team scored
-                diff_dict[game_time_bin]['val'] -= st.worth
-        #shot type
-        if st.stat_type == 'POINT':
-            shot_type = df.shot_type_convert(st.point_type)+'s'
-            try:
-                shot_type_dict[cur_team][shot_type]['val'] += st.worth
-            except:
-                continue
-
-    #make the chart dictionaries
-    diff_chart = df.make_dict(id='chart-div diff',data=[],options='')
-    poss_chart_home = df.make_dict(id='chart-div home_poss',data=[],options='')
-    poss_chart_away = df.make_dict(id='chart-div away_poss',data=[],options='')
-    shot_type_chart = df.make_dict(data1 = [],data2 = [],id='chart-div shot_type',options='')
-    #shot_type_away = df.make_dict(data = [],id='chart-div shot_type',options='')
-
-    #convert dictionary to list of lists for google charts
-    diff_chart['data'], diff_max_val = df.time_hist_to_google_data(diff_dict,['Possession Time','Scoring Differential'],game_time_interval)
-    poss_chart_home['data'], poss_home_max_val = df.time_hist_to_google_data(poss_time_dict['team'],['Possession Time','team'],poss_time_interval,divide_by='poss')
-    poss_chart_away['data'], poss_away_max_val = df.time_hist_to_google_data(poss_time_dict['opp'],['Possession Time','opp'],poss_time_interval,divide_by='poss')
-    #return str(poss_chart_home['data'])
-    shot_type_chart['data1'] = [['Shot Type','Shots',{ 'role': 'tooltip','p': {'html': 'true'} }]]
-    shot_type_chart['data2'] = [['Shot Type','Shots',{ 'role': 'tooltip','p': {'html': 'true'} }]]
-    tooltip = '<div>test</div>'
-    for key in shot_type_dict['team'].keys():
-        shot_type_chart['data1'].append([str(key),shot_type_dict['team'][key]['val'],tooltip])
-    for key in shot_type_dict['opp'].keys():
-        shot_type_chart['data2'].append([str(key),shot_type_dict['opp'][key]['val'],tooltip])
-
-
-    if poss_home_max_val > poss_away_max_val:
-        poss_max_val = poss_home_max_val
-    else: poss_max_val = poss_away_max_val
-
-    #common column chart options
-    hAxis = {'slantedText':"true",'slantedTextAngle':'45'}
-    column_options = cf.chart_options2('column',new_options = {'hAxis':hAxis})
-
-    #common line chart options
-    line_options = cf.chart_options2('line')
-
-    #common pie chart options
-    pie_options = cf.chart_options2('pie')
-
-    #scoring difference chart
-    hAxis = {'title':'Game Time (min)'}
-    vAxis = {'title':'Points'}
-    diff_options = cf.chart_options2('',options = column_options,new_options = {'hAxis':hAxis, 'vAxis':vAxis, 'colors':[default_color]})
-    diff_chart['options'] = json.dumps(diff_options)
-
-    #home team scoring by possession time chart
-    hAxis = {'title':'Possession Time (sec)'}
-    vAxis = {'title':'Points','maxValue':str(poss_max_val),'minValue':'0'}
-    poss_home_options = cf.chart_options2('',options = column_options,new_options = {'hAxis':hAxis,'vAxis':vAxis,'colors':[default_color]})
-    poss_chart_home['options'] = json.dumps(poss_home_options)
-
-    #away team scoring by possession time chart
-    hAxis = {'title':'Possession Time (sec)'}
-    vAxis = {'title':'Points','maxValue':str(poss_max_val),'minValue':'0'}
-    poss_away_options = cf.chart_options2('',options = column_options,new_options = {'hAxis':hAxis,'vAxis':vAxis,'colors':[opp_default_color]})
-    poss_chart_away['options'] = json.dumps(poss_away_options)
-
-    #home team shot types
-    #hAxis = {'maxValue':'5:00','minValue':'00:00','title':'Game Time (min)'}
-    shot_type_options = cf.chart_options2('',options = pie_options, new_options = {})
-    shot_type_chart['options'] = json.dumps(shot_type_options)
+    a = time.time()
+    poss_chart_home, time_diff = poss_time_chart(pbp_data,team_obj,chartid='home_poss',chart_color=default_color)
+    b = time.time()
+    poss_chart_away,time_diff = poss_time_chart(pbp_data,team_obj,opp_team=True,chartid='away_poss',chart_color=opp_default_color)
+    c = time.time()
+    diff_chart = scoring_diff_chart(pbp_data,team_obj,chartid='diff',chart_color=default_color)
+    d = time.time()
+    shot_chart,time_diff = shot_type_chart(pbp_data,team_obj,chartid='shot_type',chart_color=default_color)
+    e = time.time()
+    #return str([b-a,c-b,d-c,e-d, y-x, z-y])
 
     #unique html chart ids
-    chart_ids = df.make_dict(diff_chart = diff_chart['id'], poss_chart_home = poss_chart_home['id'], poss_chart_away = poss_chart_away['id'],
-        shot_type_chart = shot_type_chart['id'])
-
-    #set misc chart options
-    diff_chart['formatters'] = [['0',1]]
-    poss_chart_home['formatters'] = [['0.00',1]]
-    poss_chart_away['formatters'] = [['0.00',1]]
+    chart_ids = df.make_dict(diff_chart = diff_chart.chartid, poss_chart_home = poss_chart_home.chartid,
+        poss_chart_away = poss_chart_away.chartid,shot_chart = shot_chart.chartid)
 
     #construct a dict to hold all the charts
     column_charts = [diff_chart, poss_chart_home,poss_chart_away]
     line_charts = []
-    pie_diff_charts = [shot_type_chart]
+    pie_diff_charts = [shot_chart]
 
+
+    t = a-b
+    #return str(t)
     return render_template(
         'team_points.html',
         column_charts = column_charts,
@@ -344,6 +244,155 @@ def points(the_team):
         chart_ids = chart_ids,
         no_data = False,
         team = the_team,
+        year = the_year,
         locations = ['All','Home','Away'],
         outcomes = ['All','Wins','Losses'])
+def shot_type_chart(data,team_obj,chartid='',chart_color='blue'):
+    the_dict_team = dict((k,{'val' : 0}) for k in [shot+'s' for shot in df.shot_list()])
+    the_dict_opp = dict((k,{'val' : 0}) for k in [shot+'s' for shot in df.shot_list()])
+
+    '''q = models.pbp_stat.query.join(models.game).filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID))
+
+    q_opp = q.filter(or_(and_(models.game.home_team==team_obj.ncaaID,models.pbp_stat.teamID==0),and_(models.game.away_team==team_obj.ncaaID,models.pbp_stat.teamID==1)))
+    q_team = q.filter(or_(and_(models.game.home_team==team_obj.ncaaID,models.pbp_stat.teamID==1),and_(models.game.away_team==team_obj.ncaaID,models.pbp_stat.teamID==0)))
+    q_opp = q_opp.filter(models.pbp_stat.stat_type == 'POINT')
+    q_team = q_team.filter(models.pbp_stat.stat_type == 'POINT')
+
+    a = datetime.now()
+    for st in q_team:
+        shot_type = df.shot_type_convert(st.point_type)+'s'
+        try:
+            the_dict_team[shot_type]['val'] += int(st.worth)
+        except:
+            continue
+    b = datetime.now()
+    for st in q_opp:
+        shot_type = df.shot_type_convert(st.point_type)+'s'
+        try:
+            the_dict_opp[shot_type]['val'] += int(st.worth)
+        except:
+            continue'''
+    b = datetime.now()
+    for st in data:
+        shot_type = df.shot_type_convert(st.point_type)+'s'
+        try:
+            if is_team(st,team_obj):
+                the_dict_team[shot_type]['val'] += int(st.worth)
+            else:
+                the_dict_opp[shot_type]['val'] += int(st.worth)
+        except:
+            continue
+    c = datetime.now()
+
+    #shot type pie chart
+    this_chart = cf.google_chart(chart_type='pie_diff',chartid=chartid)
+    this_chart.js_options()
+
+    this_chart.data = [['Shot Type','Shots',{ 'role': 'tooltip','p': {'html': 'true'} }]]
+    this_chart.data2 = [['Shot Type','Shots',{ 'role': 'tooltip','p': {'html': 'true'} }]]
+    tooltip = '<div>test</div>'
+    for key in the_dict_team.keys():
+        this_chart.data.append([str(key),the_dict_team[key]['val'],tooltip])
+    for key in the_dict_opp.keys():
+        this_chart.data2.append([str(key),the_dict_opp[key]['val'],tooltip])
+
+    time_diff1 = b-c
+    time_diff2 = c-c
+    return this_chart,[time_diff1.microseconds,time_diff2.microseconds]
+def poss_time_chart(data,team_obj,opp_team=False,chartid='',chart_color='blue'):
+    max_possession_time = 40
+    possession_time_interval = 5
+    chart_series = 'Opponent'
+    a = datetime.now()
+    the_dict = dict((k, {'val': 0, 'poss': 0,'color': 'blue'}) for k in range(max_possession_time)[0::possession_time_interval])
+    '''if opp_team:
+        chart_series = 'Opponent'
+        q = q.filter(or_(and_(models.game.home_team==team_obj.ncaaID,models.pbp_stat.teamID==0),and_(models.game.away_team==team_obj.ncaaID,models.pbp_stat.teamID==1)))
+    else:
+        chart_series = str(team_obj.ncaa)
+        q = q.filter(or_(and_(models.game.home_team==team_obj.ncaaID,models.pbp_stat.teamID==1),and_(models.game.away_team==team_obj.ncaaID,models.pbp_stat.teamID==0)))
+    #b = datetime.now()
+
+    q_points = q.filter(models.pbp_stat.worth > 0)
+    for st in q_points:
+        try:
+            poss_time_bin = int(df.myround(st.possession_time_adj,possession_time_interval))
+            the_dict[poss_time_bin]['val'] += int(st.worth)
+        except:
+            continue
+    q_poss = q.filter(models.pbp_stat.possession_time > -1)
+    for st in q_poss:#
+        try:
+            poss_time_bin = int(df.myround(st.possession_time_adj,possession_time_interval))
+            the_dict[poss_time_bin]['poss'] += 1
+        except:
+            continue'''
+    for st in data:
+        try:
+            if (is_team(st,team_obj) and not opp_team) or (not is_team(st,team_obj) and opp_team):
+                continue
+            poss_time_bin = int(df.myround(st.possession_time_adj,possession_time_interval))
+            if st.worth > 0:
+                the_dict[poss_time_bin]['val'] += int(st.worth)
+            elif st.possession_time > -1:
+                the_dict[poss_time_bin]['poss'] += 1
+        except:
+            continue
+
+
+    b = datetime.now()
+
+    #home team scoring by possession time chart
+    this_chart = cf.google_chart(chart_type='column',chartid=chartid)
+    this_chart.options['hAxis']['title'] = 'Possession Time (sec)'
+    this_chart.options['vAxis']['title'] = 'Points'
+    this_chart.options['colors'] = [chart_color]
+    this_chart.formatters = [['0.00',1]]
+    this_chart.js_options()
+    this_chart.data, poss_home_max_val = df.time_hist_to_google_data(the_dict,['Possession Time',chart_series],5,divide_by='poss')
+
+    time_diff = b - a
+    return this_chart, time_diff.microseconds
+def scoring_diff_chart(data,team_obj,chartid='',chart_color='blue'):
+    chart_series = 'Scoring Differential'
+
+    '''q_opp = q.filter(or_(and_(models.game.home_team==team_obj.ncaaID,models.pbp_stat.teamID==0),and_(models.game.away_team==team_obj.ncaaID,models.pbp_stat.teamID==1)))
+    q_team = q.filter(or_(and_(models.game.home_team==team_obj.ncaaID,models.pbp_stat.teamID==1),and_(models.game.away_team==team_obj.ncaaID,models.pbp_stat.teamID==0)))
+    q_opp = q_opp.filter(models.pbp_stat.worth > 0)
+    q_team = q_team.filter(models.pbp_stat.worth > 0)'''
+
+    game_time_interval = 5
+    the_dict = dict((k,{'val':0,'color':chart_color}) for k in range(40+game_time_interval)[0::game_time_interval])
+    for st in data:
+        try:
+            game_time_bin = df.myround(st.time, game_time_interval)
+            if is_team(st,team_obj):
+                the_dict[game_time_bin]['val'] += int(st.worth)
+            else:
+                the_dict[game_time_bin]['val'] -= int(st.worth)
+        except:
+            continue
+
+    #scoring difference chart
+    this_chart = cf.google_chart(chart_type='column',chartid=chartid)
+    this_chart.options['hAxis']['title'] = 'Game Time (min)'
+    this_chart.options['vAxis']['title'] = 'Points'
+    this_chart.options['colors'] = [chart_color]
+    this_chart.formatters = [['0',1]]
+    this_chart.js_options()
+    this_chart.data, diff_max_val = df.time_hist_to_google_data(the_dict,['Possession Time',chart_series],game_time_interval)
+
+    return this_chart
+def is_team(st,team):
+    return not ((st.game.home_team==team.ncaaID and st.teamID==0) or (st.game.away_team==team.ncaaID and st.teamID==1))
+def possession_points_hist(the_dict,stat,bin):
+    temp = the_dict
+    try:
+        if stat.possession_time > -1:
+            the_dict[bin]['poss'] += 1
+        if stat.worth > 0:
+            the_dict[bin]['val'] += stat.worth
+        return the_dict
+    except:
+        return temp
 

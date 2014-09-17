@@ -1,5 +1,4 @@
 from flask import render_template, flash, redirect, session, url_for, request, Blueprint
-from forms import LoginForm
 from mysite import models
 import data_functions as df
 import team_info_functions as tf
@@ -13,8 +12,7 @@ mod = Blueprint('main', __name__)
 @mod.route('/')
 @mod.route('/index')
 def index():
-
-    return render_template('index.html')
+    return redirect(url_for('teams.teams'))
 
 @mod.app_errorhandler(404)
 def not_found_error(error):

@@ -7,32 +7,10 @@ import httplib
 from bs4 import BeautifulSoup
 from sqlalchemy import and_, or_
 
-class year(db.Model):
-    __tablename__ = 'year'
-    __bind_key__ = 'data_db'
-    id = db.Column(db.Integer, primary_key=True)
-    year = db.Column(db.Integer)
-    teams = db.relationship('team', backref='year', lazy='dynamic',primaryjoin="team.yearid==year.id")
-    games = db.relationship('game', backref='year', lazy='dynamic',primaryjoin="game.yearid==year.id")
-    raw_games = db.relationship('raw_game', backref='year', lazy='dynamic',primaryjoin="raw_game.yearid==year.id")
-
-    @staticmethod
-    def get_or_create(the_year):
-        yr = year.query.filter(year.year==the_year).first()
-        if yr is None:
-            #the game doesn't exist
-            yr = year()
-            yr.year = the_year
-            db.session.add(yr)
-            print 'new year created'
-        return yr
-    def __getitem__(self, key):
-        return getattr(self, key)
 class team(db.Model):
     __tablename__ = 'team'
     __bind_key__ = 'data_db'
     id = db.Column(db.Integer, primary_key=True)
-    yearid = db.Column(db.Integer, db.ForeignKey(year.id))
     ncaaID = db.Column(db.String(140))
     statsheet = db.Column(db.String(140))
     ncaa = db.Column(db.String(140))
@@ -59,12 +37,10 @@ class raw_game(db.Model):
     __tablename__ = 'raw_game'
     __bind_key__ = 'data_db'
     id = db.Column(db.Integer, primary_key=True)
-    yearid = db.Column(db.Integer, db.ForeignKey(year.id))
     home_team = db.Column(db.String(140))
     away_team = db.Column(db.String(140))
-    date = db.Column(db.String(140))
-    #TODO: don't need location
-    location = db.Column(db.String(140))
+    date = db.Column(db.DateTime) #changed type
+    #deleted location
     home_outcome = db.Column(db.String(140))
     raw_box_stats = db.relationship('raw_box',cascade='all,delete', backref='raw_game', lazy='dynamic',primaryjoin="raw_box.raw_game_id==raw_game.id")
     raw_pbp_stats = db.relationship('raw_play', cascade='all,delete', backref='raw_game', lazy='dynamic',primaryjoin="raw_play.raw_game_id==raw_game.id")
@@ -103,14 +79,12 @@ class raw_box(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     raw_game_id = db.Column(db.Integer, db.ForeignKey(raw_game.id))
     soup_string = db.Column(db.String(1000))
-
-
-
 class player(db.Model):
     __tablename__ = 'players'
     __bind_key__ = 'data_db'
     id = db.Column(db.Integer, primary_key=True)
     teamid = db.Column(db.Integer, db.ForeignKey(team.id))
+    year = db.Column(db.Integer) #added year
     name = db.Column(db.String(140))
     first_name = db.Column(db.String(140))
     last_name = db.Column(db.String(140))
@@ -131,7 +105,6 @@ class game(db.Model):
     __tablename__ = 'game'
     __bind_key__ = 'data_db'
     id = db.Column(db.Integer, primary_key=True)
-    yearid = db.Column(db.Integer, db.ForeignKey(year.id))
     home_team = db.Column(db.String(100))
     away_team = db.Column(db.String(100))
     home_outcome = db.Column(db.String(1))
@@ -204,7 +177,6 @@ class box_stat(db.Model):
 
     def __getitem__(self, key):
         return getattr(self, key)
-
 
 class pbp_stat(db.Model):
     __tablename__ = 'pbp'

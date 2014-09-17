@@ -4,7 +4,7 @@
 {% block content %}
 <body>
 
-        <form action="{{ url_for('teams.points', the_team = team) }}" method="POST" class="form-inline">
+        <form action="{{ url_for('teams.points', the_team = team, the_year=year) }}" method="POST" class="form-inline">
 
         <div class="form-group">
         <select name="location" width="300px">
@@ -31,15 +31,15 @@
         <h5>No game was found!</h5>
     {% else %}
         {% for chart in column_charts %}
-            {{ google_chart_column(chart['data']|safe, chart['options'],formatters = chart['formatters'], chartid=chart['id']|safe) }}
+            {{ google_chart_column(chart.data|safe, chart.options,formatters = chart.formatters, chartid=chart.chartid|safe) }}
         {% endfor %}
 
         {% for chart in pie_diff_charts %}
-            {{ google_chart_diff_pie(chart['data1']|safe,chart['data2']|safe, chart['options'], chartid=chart['id']|safe) }}
+            {{ google_chart_diff_pie(chart.data|safe,chart.data2|safe, chart.options, chartid=chart.chartid|safe) }}
         {% endfor %}
 
         {% for chart in line_charts %}
-            {{ google_chart_line(chart['data']|safe,chart['options'],chartid=chart['id']|safe) }}
+            {{ google_chart_line(chart.data|safe,chart.options,chartid=chart.chartid|safe) }}
         {% endfor %}
 
         <div class="chart-div">
@@ -53,7 +53,7 @@
         </div>
         <div class="chart-div">
             <h5>Points Breakdown by Type</h5>
-            <div id="{{ chart_ids['shot_type_chart'] }}" class="std-chart" style="display:inline-block; width:45%; height:300px;"></div>
+            <div id="{{ chart_ids['shot_chart'] }}" class="std-chart" style="display:inline-block; width:45%; height:300px;"></div>
         </div>
     {% endif %}
   </body>

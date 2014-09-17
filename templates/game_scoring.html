@@ -7,15 +7,15 @@
         <h5>No game was found!</h5>
     {% else %}
         {% for chart in column_charts %}
-            {{ google_chart_column(chart['data']|safe, chart['options'],formatters = chart['formatters'], chartid=chart['id']|safe) }}
+            {{ google_chart_column(chart.data|safe, chart.options,formatters = chart.formatters, chartid=chart.chartid|safe) }}
         {% endfor %}
 
         {% for chart in pie_diff_charts %}
-            {{ google_chart_diff_pie(chart['data1']|safe,chart['data2']|safe, chart['options'], chartid=chart['id']|safe) }}
+            {{ google_chart_diff_pie(chart.data|safe,chart.data2|safe, chart.options, chartid=chart.chartid|safe) }}
         {% endfor %}
 
         {% for chart in line_charts %}
-            {{ google_chart_line(chart['data']|safe,chart['options'],chartid=chart['id']|safe) }}
+            {{ google_chart_line(chart.data|safe,chart.options,chartid=chart.chartid|safe) }}
         {% endfor %}
 
         <div class="chart-div">
