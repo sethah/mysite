@@ -90,8 +90,7 @@ def get_ncaa_schedule_data(teamID):
                 opponent = opponent[opponent.find('=')+1:len(opponent)]
 
                 #check to see if this team exists in the database
-                q = query_by_year('team',db_year)
-                opp_q = q.filter(models.team.ncaaID==opponent).first()
+                opp_q = models.team.filter(models.team.ncaaID==opponent).first()
                 if opp_q is None:
                     #opponent not in database, so use a string instead
                     assert False
@@ -160,7 +159,7 @@ def win_loss_invert(outcome):
     else:
         return None
 
-def get_scoreboard_games(date_string, the_year):
+def get_scoreboard_games(date_string):
     '''
     @Function: convert_name_ncaa(name)
     @Author: S. Hendrickson 3/5/14
@@ -223,7 +222,7 @@ def get_scoreboard_games(date_string, the_year):
                     #handle a team link
                     team_string =  link.get_text().strip()
                     teamID = url[url.index('=')+1:len(url)]
-                    team_q = models.team.query.join(models.year).filter(and_(models.year.year==the_year,models.team.ncaaID==teamID)).first()
+                    team_q = models.team.query.filter(models.team.ncaaID==teamID).first()
                     if team_q == None:
                         #this team isn't in the database, use the string for the team instead
                         teams.append(team_string)
@@ -371,7 +370,7 @@ def convert_name_ncaa(name):
         name = None
     return name, first_name, last_name
 
-def get_rpi(the_year):
+def get_rpi():
     #TODO: this is horrendous. make the function work
     #TODO: error proof this
     '''
@@ -402,7 +401,7 @@ def get_rpi(the_year):
             team = a[a.rfind('/')+1:len(a)]
 
             #query for the current team using statsheet attribute
-            q = models.team.query.join(models.year).filter(and_(models.year.year==the_year,models.team.statsheet == team))
+            q = models.team.query.filter(models.team.statsheet == team)
             the_team = q.first()
 
             #if the team wasn't found in the db, do nothing

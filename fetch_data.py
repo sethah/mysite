@@ -16,8 +16,8 @@ project_home = u'/home/hendris'
 if project_home not in sys.path:
     sys.path = [project_home] + sys.path
 
-from sqlalchemy import and_, or_
-from sqlalchemy.sql import func, select
+from sqlalchemy import and_, or_, create_engine
+from sqlalchemy.sql import func, select, text
 from mysite import models, db
 from mysite import team_info_functions as tf
 from mysite import game_process_functions as gpf
@@ -33,7 +33,38 @@ import pstats
 import contextlib
 
 current_year = df.get_year()
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
+import time
 
+import logging
+
+logging.basicConfig()
+logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+
+'''logging.basicConfig()
+logger = logging.getLogger("myapp.sqltime")
+logger.setLevel(logging.DEBUG)
+
+@event.listens_for(Engine, "before_cursor_execute")
+def before_cursor_execute(conn, cursor, statement,
+                        parameters, context, executemany):
+    context._query_start_time = time.time()
+    logger.debug("Start Query:\n%s" % statement)
+    # Modification for StackOverflow answer:
+    # Show parameters, which might be too verbose, depending on usage..
+    logger.debug("Parameters:\n%r" % (parameters,))
+
+
+@event.listens_for(Engine, "after_cursor_execute")
+def after_cursor_execute(conn, cursor, statement,
+                        parameters, context, executemany):
+    total = time.time() - context._query_start_time
+    logger.debug("Query Complete!")
+
+    # Modification for StackOverflow: times in milliseconds
+    logger.debug("Total Time: %.02fms" % (total*1000))
+'''
 @contextlib.contextmanager
 def profiled():
     pr = cProfile.Profile()
@@ -41,7 +72,7 @@ def profiled():
     yield
     pr.disable()
     s = StringIO.StringIO()
-    ps = pstats.Stats(pr, stream=s).sort_stats('cumulative')
+    ps = pstats.Stats(pr, stream=s).sort_stats('time')
     ps.print_stats()
     # uncomment this to see who's calling what
     # ps.print_callers()
@@ -50,88 +81,45 @@ def profiled():
 def main():
     '''This function needs to do all the one time things that are required
     to begin a new database for a new season'''
+    '''with profiled():
+        q = models.team.query.all()'''
+    #from sqlalchemy import *
 
-    #use today's date
-    teams = models.team.query.all()
-    cnt = 0
-    '''for team in teams:
-        keys = team.__dict__.keys()
-        for k in keys:
-            att = getattr(team,k)
-            print k,att,type(att)
-            if type(att) == type(u'a'):
-                cnt += 1
-        team.statsheet = team.statsheet.encode('ascii','ignore')
-        if type(att) == type(u'a') and False:
-            print type(att.encode('ascii','ignore'))
-            setattr(team,k,att.encode('ascii','ignore'))
-            print type(getattr(team,k))
-        break
-    print cnt
-    db.session.commit()
-    try:
-        team.ncaaID = team.ncaaID.encode('ascii','ignore')
-        team.statsheet = team.statsheet.encode('ascii','ignore')
-        team.ncaa = team.ncaa.encode('ascii','ignore')
-        team.espn_name = team.espn_name.encode('ascii','ignore')
-        team.espn = team.espn.encode('ascii','ignore')
-        team.cbs1 = team.cbs1.encode('ascii','ignore')
-        team.cbs2 = team.cbs2.encode('ascii','ignore')
-        team.rpi_rank = team.rpi_rank.encode('ascii','ignore')
-        team.wins = team.wins.encode('ascii','ignore')
-        team.losses = team.losses.encode('ascii','ignore')
-        team.rpi = team.rpi.encode('ascii','ignore')
-        team.sos = team.sos.encode('ascii','ignore')
-        team.sos_rank = team.sos_rank.encode('ascii','ignore')
-        team.conference = team.conference.encode('ascii','ignore')
-    except:
-        continue'''
-    #db.session.commit()
     with profiled():
+        #e = create_engine('mysql://hendris:Hoo16sier@mysql.server/hendris$data?charset=utf8')
+        #r = e.execute('select * from team').fetchall()
+        #models.team.query.all()
+        '''q = db.session.query(models.team)
+        l = []
+        for thing in q:
+            pass'''
+            #l.append(thing)
+        import mysql.connector
+        import MySQLdb.cursors
+
+        cnx = MySQLdb.connect(host='mysql.server',
+                                     user='hendris', passwd='Hoo16sier', db='hendris$data',
+                                     charset = "utf8",cursorclass = MySQLdb.cursors.SSCursor)
+        cursor = cnx.cursor()
+
+        query = ("SELECT * FROM pbp limit 1000")
+
         a = time.time()
-        q1 = models.game.query.all()
-        #q1 = db.session.query(models.game.home_team).all()
+        cursor.execute(query)
         b = time.time()
-        #q1 = select([models.pbp_stat]).where(models.pbp_stat.player=='NOAH VONLEH')
-        #db.engine.execute(q1)
-        c = time.time()
-    #print q1
-    print len(q1)
-    return None
-    q = models.pbp_stat.query.with_entities(models.pbp_stat.worth,models.pbp_stat.stat_type).join(models.game).filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID)).all()
-    #get all the games for this team
-    a = time.time()
-    q1 = models.pbp_stat.query.with_entities(models.pbp_stat.worth,models.pbp_stat.stat_type).join(models.game).filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID)).all()
-    b = time.time()
-    print b-a
-
-
-    s = 0
-    x=0
-    for st in q1.all():
-        if st.possession_time_adj < 10 and st.possession_time_adj>0:
-            s += st.home_score
-        elif st.possession_time_adj>=10 and st.possession_time_adj<=20:
-            x += st.home_score
-
-    print x
-    b = time.time()
-    #q2 = db.session.query(models.pbp_stat,func.sum(models.pbp_stat.home_score).label('total score'))
-    #q3 = models.pbp_stat.query
-    qa = db.session.query(models.pbp_stat,func.sum(models.pbp_stat.home_score).label('total score')).join(models.game).filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID)).filter(models.pbp_stat.possession_time_adj.between(0,10))
-    qb = db.session.query(models.pbp_stat,func.sum(models.pbp_stat.home_score).label('total score')).join(models.game).filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID)).filter(models.pbp_stat.possession_time_adj.between(10,20))
-    qc = db.session.query(models.pbp_stat,func.sum(models.pbp_stat.home_score).label('total score')).join(models.game).filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID)).filter(models.pbp_stat.possession_time_adj.between(20,30))
-    qd = db.session.query(models.pbp_stat,func.sum(models.pbp_stat.home_score).label('total score')).join(models.game).filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID)).filter(models.pbp_stat.possession_time_adj.between(30,40))
-    print qa.all(),qb.all(),qc.all(),qd.all()
-    c = time.time()
-    print c-b,b-a
-
-
+        l = []
+        for thing in cursor:
+            print type(thing[4])
+            pass
+        print time.time()-b, b-a
+        cursor.close()
+        cnx.close()
 
     return None
+
     the_date = datetime.today().date()
 
-    date_string = '03/13/2014'
+    date_string = '03/12/2014'
     the_date = datetime.strptime(date_string,'%m/%d/%Y').date()
 
     update_db(the_date)
@@ -147,7 +135,7 @@ def update_db(the_date):
         return None
 
     #limit update games to certain teams, all teams if empty
-    update_teams = ['306']
+    update_teams = []
 
     #store all the raw html for games for the date in the database
     store_raw_scoreboard_games_errors = store_raw_scoreboard_games(the_date,update_teams)
@@ -188,16 +176,9 @@ def process_raw_games(the_date,update_teams = []):
         return errors
 
     #query the raw database for all of the games for the date used
-    q = tf.query_by_year('raw_game',current_year)
-    raw_q = q.filter(models.raw_game.date==the_date).all()
+    raw_q = models.raw_game.query.filter(models.raw_game.date==the_date).all()
     if raw_q == None:
         errors.append('No raw games found for this date, %s' % date_string)
-        return errors
-
-    #query for the year object to add the games to
-    the_year = tf.query_by_year('year',current_year).first()
-    if the_year == None:
-        errors.append('No year found for pbp processing')
         return errors
 
     for raw_game in raw_q:
@@ -218,8 +199,8 @@ def process_raw_games(the_date,update_teams = []):
             db.session.flush()
 
             #check if one of the teams is not in the database, process wout stats
-            home_team_obj = tf.query_by_year('team',game_year).filter(models.team.ncaaID==raw_game.home_team).first()
-            away_team_obj = tf.query_by_year('team',game_year).filter(models.team.ncaaID==raw_game.away_team).first()
+            home_team_obj = models.team.query.filter(models.team.ncaaID==raw_game.home_team).first()
+            away_team_obj = models.team.query.filter(models.team.ncaaID==raw_game.away_team).first()
             if home_team_obj == None or away_team_obj == None:
                 no_stats(raw_game, pbp_game)
                 db.session.commit()
@@ -252,11 +233,11 @@ def process_raw_games(the_date,update_teams = []):
             continue
 
         #save to database
-        the_year.games.append(pbp_game)
+        db.session.add(pbp_game)
         db.session.flush()
 
         #check the pbp stats against the box stats
-        check_stats_errors = gpf.check_game_stats(pbp_game,current_year)
+        check_stats_errors = gpf.check_game_stats(pbp_game)
         if len(check_stats_errors) > 6:
             #if more than 6 players had stats errors
             send_errors('check stats error'+date_string,check_stats_errors)
@@ -346,7 +327,7 @@ def store_raw_scoreboard_games(the_date, teamIDs = []):
 
     try:
         #get the list of teams, box game links, and pbp links from the day's scoreboard
-        teams, box_links, links, msg = tf.get_scoreboard_games(date_string, current_year)
+        teams, box_links, links, msg = tf.get_scoreboard_games(date_string)
         print teams
 
         if teams == None:
@@ -385,12 +366,9 @@ def store_raw_scoreboard_games(the_date, teamIDs = []):
     return errors
 def get_scoreboard_teams(teams, db_year):
     team1 = teams[0]
-    q = tf.query_by_year('team',db_year)
-    team1_obj = q.filter(models.team.ncaaID==team1).first()
-
+    team1_obj = models.team.query.filter(models.team.ncaaID==team1).first()
     team2 = teams[1]
-    q = tf.query_by_year('team',db_year)
-    team2_obj = q.filter(models.team.ncaaID==team2).first()
+    team2_obj = models.team.query.filter(models.team.ncaaID==team2).first()
 
     if team1_obj == None:
         team1_ncaa = team1
@@ -418,9 +396,6 @@ def store_raw_game(box_link, pbp_link, date,date_string, team1_ncaa, team1_ncaaI
     this_game = models.raw_game.get_or_create(date, team1_ncaaID, team2_ncaaID)
     this_game.raw_box_stats.delete()
     this_game.raw_pbp_stats.delete()
-
-    #query for the year object
-    the_year = models.year.get_or_create(db_year)
     db.session.flush()
 
     try:
@@ -471,7 +446,7 @@ def store_raw_game(box_link, pbp_link, date,date_string, team1_ncaa, team1_ncaaI
         errors.append('error retrieving pbp rows: '+",".join([team1_ncaa,team2_ncaa,date_string]))
 
     if len(errors) == 0:
-        the_year.raw_games.append(this_game)
+        db.session.add(this_game)
         db.session.commit()
     else:
         db.session.rollback()

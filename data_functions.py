@@ -4,23 +4,27 @@ from flask import flash
 #from mysite import models
 from sqlalchemy import and_, or_
 def main():
-    l = ['a', 'b', 'c']
-    d = dict((k, [0, 0]) for k in l)
-    print d
-    return None
-    print dict.fromkeys(['x','y'],{'val':0})
+    yr = get_year_from_date(datetime(2014,2,21))
 def get_year():
-    current_year = 2014
+    current_year = 2013
     return current_year
+def xstr(s):
+    if s is None:
+        return ''
+    return str(s)
+def date_range(year):
+    date_start = datetime(year,9,1).date()
+    date_end = datetime(year+1,5,1).date()
+    return [date_start,date_end]
 def get_year_from_date(date):
     transition_month = 9
     try:
         year = date.year
         month = date.month
         if month >= transition_month:
-            new_year = year + 1
-        else:
             new_year = year
+        else:
+            new_year = year - 1
     except:
         return None
     return new_year

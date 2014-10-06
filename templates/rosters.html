@@ -5,6 +5,19 @@
 {%if no_data %}
     <h3>Site under construction</h3>
 {% else %}
+    <form action="{{ url_for('teams.roster', the_team = team) }}" method="POST" class="form-inline">
+    <b>Season:</b>
+    <select name="year" width="300px" onchange="this.form.submit()">
+    {% for yr in years %}
+        {% if yr == the_year %}
+            <option selected value="{{ yr }}">{{ yr }}-{{ yr + 1 }}</option>
+        {% else %}
+            <option value="{{ yr }}">{{ yr }}-{{ yr + 1 }}</option>
+        {% endif %}
+    {% endfor %}
+    </select>
+    </form>
+
     <table>
         <thead>
         {% for hdr in hdrs %}
@@ -15,7 +28,11 @@
         {% for d in data %}
         <tr>
             {% for key in key_list %}
-                <td>{{ d[key] }}</td>
+                {% if key == "height" %}
+                    <td>{{ d.height_string() }}</td>
+                {% else %}
+                    <td>{{ d[key] }}</td>
+                {% endif %}
             {% endfor %}
         </tr>
         {% endfor %}

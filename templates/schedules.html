@@ -2,6 +2,19 @@
 {% block content %}
 
 
+        <form action="{{ url_for('teams.schedule', the_team = team) }}" method="POST" class="form-inline">
+        <b>Season:</b>
+        <select name="year" width="300px" onchange="this.form.submit()">
+        {% for yr in years %}
+            {% if yr == the_year %}
+                <option selected value="{{ yr }}">{{ yr }}-{{ yr + 1 }}</option>
+            {% else %}
+                <option value="{{ yr }}">{{ yr }}-{{ yr + 1 }}</option>
+            {% endif %}
+        {% endfor %}
+        </select>
+        </form>
+
 <table>
     <thead>
     {% for hdr in hdrs %}
@@ -24,12 +37,12 @@
                         <td>{{ d[key]+' | ' }}<a href="{{ url_for('game.box_stats', the_month = d.date.split('-')[0], the_day = d.date.split('-')[1], the_year = d.date.split('-')[2], game_string = d.away_team_link+'@'+d.home_team_link)}}">Stats</a></td>
                     {% endif %}
                 {% elif key == 'home_team' %}
-                    <td><a href="{{ url_for('teams.schedule', the_team = d.home_team_link, the_year = year)}}">{{ d[key] }}</a></td>
+                    <td><a href="{{ url_for('teams.schedule', the_team = d.home_team_link)}}">{{ d[key] }}</a></td>
                 {% elif key == 'away_team' %}
                 	{% if d.away_team_link == ''%}
                 		<td>{{ d[key] }}</td>
                 	{% else %}
-                    	<td><a href="{{ url_for('teams.schedule', the_team = d.away_team_link, the_year = year)}}">{{ d[key] }}</a></td>
+                    	<td><a href="{{ url_for('teams.schedule', the_team = d.away_team_link)}}">{{ d[key] }}</a></td>
                     {% endif %}
                 {% elif key == 'date' %}
                     {% if d.neutral_site %}

@@ -1004,20 +1004,22 @@ def make_box_stat(hdr,bstat,val):
     elif hdr == 'PF' or hdr == 'Fouls':
         bstat.pf = val
     return bstat
-def check_game_stats(pbp_game, the_year):
+def check_game_stats(pbp_game):
     errors = []
+    #TODO: add get year from date, then change player filters to get that year
+    game_year = df.get_year_from_date(pbp_game.date)
 
     home_team = pbp_game.home_team
     #home_team_obj = models.team.query
     away_team = pbp_game.away_team
 
     #get the home and away rosters
-    q = models.player.query.join(models.team).join(models.year).filter(and_(models.year.year==the_year,models.team.ncaaID==home_team)).all()
+    q = models.player.query.join(models.team).filter(and_(models.player.year==game_year,models.team.ncaaID==home_team)).all()
     home_roster = []
     for plr in q:
         home_roster.append(plr.name)
 
-    q = models.player.query.join(models.team).join(models.year).filter(and_(models.year.year==the_year,models.team.ncaaID==away_team)).all()
+    q = models.player.query.join(models.team).filter(and_(models.player.year==game_year,models.team.ncaaID==away_team)).all()
     away_roster = []
     for plr in q:
         away_roster.append(plr.name)

@@ -13,9 +13,9 @@ OPENID_PROVIDERS = [
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 
-SQLALCHEMY_DATABASE_URI_DATA = 'mysql://hendris:Hoo16sier@mysql.server/hendris$data'
-SQLALCHEMY_DATABASE_URI_DATA = 'mysql://hendris:Hoo16sier@127.0.0.1/hendris$data'
-SQLALCHEMY_DATABASE_URI_RAW = 'mysql://hendris:Hoo16sier@mysql.server/hendris$raw_data'
+SQLALCHEMY_DATABASE_URI_DATA = 'mysql://hendris:Hoo16sier@mysql.server/hendris$data?charset=utf8'
+SQLALCHEMY_DATABASE_URI_DATA = 'mysql://hendris:Hoo16sier@127.0.0.1/hendris$data?charset=utf8'
+SQLALCHEMY_DATABASE_URI_RAW = 'mysql://hendris:Hoo16sier@mysql.server/hendris$raw_data?charset=utf8'
 #SQLALCHEMY_DATABASE_URI_DATA = 'sqlite:///' + os.path.join(basedir, 'foo5.db')
 SQLALCHEMY_DATABASE_URI_TEAMS = 'sqlite:///' + os.path.join(basedir, 'raw_teams_'+str(current_year)+'.db')
 SQLALCHEMY_BINDS = {

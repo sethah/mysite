@@ -16,23 +16,18 @@ mod = Blueprint('teams', __name__,url_prefix='/teams')
 @mod.route('/', defaults={'conference': None})
 @mod.route('/')
 def teams():
-
     #need to query all teams to get all possible conferences for the dropdown
-    all_teams = models.team.query.join(models.year).filter(models.year.year==current_year).all()
+    all_teams = models.team.query.all()
 
-    #get the conferences
-    conferences = []
-    for tm in all_teams:
-        if tm.conference not in conferences:
-            conferences.append(tm.conference)
-    conferences = ['All']+sorted(conferences)
+    #get list of unique conferences
+    conferences = ['All']+sorted(list(set([tm.conference for tm in all_teams])))
 
     conference = request.args.get('conference')
     #query for the selected teams
     if conference == None or conference == 'All':
         the_teams = all_teams
     elif conference in conferences:
-        the_teams = models.team.query.join(models.year).filter(and_(models.team.conference==conference,models.year.year==current_year)).all()
+        the_teams = models.team.query.filter(models.team.conference==conference).all()
     else:
         #the conference specified isn't valid
         return render_template('teams.html',conferences = conferences,no_data = True)
@@ -49,14 +44,13 @@ def teams():
         title = 'Teams',
         hdrs = hdrs,
         data = the_teams,
-        year = current_year,
         conferences = conferences,
         key_list = key_list,
         no_data = False)
 
-@mod.route('/<the_year>/<the_team>')
-@mod.route('/<the_year>/<the_team>/schedule')
-def schedule(the_year,the_team):
+@mod.route('/<the_team>', methods=['GET','POST'])
+@mod.route('/<the_team>/schedule', methods=['GET','POST'])
+def schedule(the_team):
     class tbl_game:
         def __init__(self):
             self.home_team = ''
@@ -69,94 +63,102 @@ def schedule(the_year,the_team):
         def __getitem__(self,key):
             return getattr(self,key)
 
+    #handle post request
+    if request.method == 'POST':
+        the_year = int(request.form['year'])
+    else:
+        the_year = df.get_year()
+    date_range = df.date_range(the_year)
 
-    #get the ncaaID of the team, handle invalid team argument
-    try:
-        ncaaID = tf.get_team_param(the_team,'statsheet').ncaaID
-    except AttributeError:
-        #team wasn't found
+    #check if team is in db
+    team_obj = models.team.query.filter(models.team.statsheet==the_team).first()
+    if the_team == None:
         return render_template('schedules.html',no_data = True, team = the_team)
 
+    #get filter values
+    q = models.game.query.with_entities(models.game.date).all()
+    years = []
+    for date in q:
+        if df.get_year_from_date(date.date) not in years:
+            years.append(date.date.year)
+
     #query for all the team's games for the year given
-    gms = models.game.query.join(models.year).filter(and_(models.year.year==the_year,or_(models.game.home_team == ncaaID, models.game.away_team == ncaaID))).order_by(models.game.date).all()
+    gms = models.game.query.filter(and_(models.game.date.between(date_range[0],date_range[1]),or_(models.game.home_team == team_obj.ncaaID, models.game.away_team == team_obj.ncaaID))).order_by(models.game.date).all()
 
     #if no games were found
     if len(gms) < 1:
         return render_template('schedules.html',no_data = True, team = the_team)
-    #return str(gms)
+
     #condition the data
     the_games = []
     for gm in gms:
         this_g = tbl_game()
-        for key,val in gm.__dict__.items():
-            if key == 'home_team':
-                try:
-                    team_obj = models.team.query.filter(models.team.ncaaID==val).first()
-                    if team_obj == None:
-                        #no team found in db
-                        this_g.home_team = str(val)
-                        #no team link if not found in db
-                        this_g.home_team_link = ''
-                    else:
-                        this_g.home_team = team_obj.ncaa
-                        this_g.home_team_link = team_obj.statsheet
-                except:
-                    this_g.home_team = ''
-                    this_g.home_team_link = ''
-            elif key == 'away_team':
-                try:
-                    team_obj = models.team.query.filter(models.team.ncaaID==val).first()
-                    if team_obj == None:
-                        #no team found in db
-                        this_g.away_team = str(val)
-                        #no team link if not found in db
-                        this_g.away_team_link = ''
-                    else:
-                        this_g.away_team = team_obj.ncaa
-                        this_g.away_team_link = team_obj.statsheet
-                except:
-                    this_g.away_team = ''
-                    this_g.away_team_link = ''
-            elif 'outcome' in key:
-                try:
-                    if ncaaID != gm.home_team:
-                        this_g.outcome = tf.win_loss_invert(gm.home_outcome)
-                    else:
-                        this_g.outcome = gm.home_outcome
-                    #if the outcome is None, then raise an error to give an empty string
-                    if this_g.outcome is None:
-                        assert False
-                except:
-                    this_g.outcome = ''
-            elif key == 'date':
-                this_g.date = gm.date.strftime('%m-%d-%Y')
-
+        this_g.home_team, this_g.home_team_link = schedule_team_link(gm.home_team)
+        this_g.away_team, this_g.away_team_link = schedule_team_link(gm.away_team)
+        this_g.outcome = schedule_outcome(gm,team_obj.ncaaID)
+        this_g.date = gm.date.strftime('%m-%d-%Y')
         this_g.neutral_site = gm.neutral_site
         the_games.append(this_g)
 
     key_list = ['date','home_team','away_team','outcome']
     hdrs = ['Date','Home Team','Away Team','Outcome']
     return render_template('schedules.html',
-        title = 'Home',
+        title = team_obj.espn_name,
         hdrs = hdrs,
         data = the_games,
-        year = current_year,
+        year = the_year,
         key_list = key_list,
+        years = years,
         team = the_team,
         no_data = False)
+def schedule_outcome(game,teamID):
+    if game.home_team != teamID:
+        outcome = tf.win_loss_invert(game.home_outcome)
+    else:
+        outcome = game.home_outcome
+    return df.xstr(outcome)
+def schedule_team_link(teamID):
+    try:
+        team_obj = models.team.query.filter(models.team.ncaaID==teamID).first()
+        if team_obj == None:
+            #no team found in db
+            team = str(teamID)
+            #no team link if not found in db
+            link_slug = ''
+        else:
+            team = team_obj.ncaa
+            link_slug = team_obj.statsheet
+    except:
+        team = ''
+        link_slug = ''
+    return df.xstr(team), df.xstr(link_slug)
+@mod.route('/<the_team>/roster', methods=['GET','POST'])
+def roster(the_team):
+    if request.method == 'POST':
+        the_year = int(request.form['year'])
+    else:
+        #default to current year
+        the_year = df.get_year()
 
-@mod.route('/<the_year>/<the_team>/roster')
-def roster(the_year,the_team):
-    team_q = models.team.query.join(models.year).filter(and_(models.year.year==the_year,models.team.statsheet==the_team)).first()
-    if team_q is None:
+    #check if team is in db
+    team_obj = models.team.query.filter(models.team.statsheet==the_team).first()
+    if the_team == None:
+        return render_template('rosters.html',no_data = True, team = the_team)
+
+    #get filter values
+    q = models.player.query.join(models.team).filter(models.team.statsheet==the_team).all()
+    years = []
+    for plr in q:
+        if plr.year not in years:
+            years.append(plr.year)
+
+    #TODO: handle invalid teams?
+    players = models.player.query.join(models.team).filter(and_(models.player.year==the_year,models.team.statsheet==the_team)).all()
+    if players is None:
         #if no players are found, but team is valid
         return render_template('rosters.html',no_data = True,team = the_team)
 
-    players = team_q.players
-    plrs = []
-    for p in players:
-        plrs.append(p)
-
+    plrs = [p for p in players]
     if len(plrs) == 0:
         #if team isn't valid
         return redirect(url_for('teams.teams'))
@@ -166,17 +168,18 @@ def roster(the_year,the_team):
     hdrs = ['Name', 'Class', 'Height','Position']
 
     return render_template('rosters.html',
-        title = 'Roster',
+        title = team_obj.espn_name+' Roster',
         hdrs = hdrs,
         key_list = key_list,
         data = plrs,
-        year = current_year,
+        year = the_year,
+        years = years,
         team = the_team,
         no_data = False)
 
-@mod.route('/<the_year>/<the_team>/stats/points', methods=['GET','POST'])
-@mod.route('/<the_year>/<the_team>/stats', methods=['GET','POST'])
-def points(the_year, the_team):
+@mod.route('/<the_team>/stats/points', methods=['GET','POST'])
+@mod.route('/<the_team>/stats', methods=['GET','POST'])
+def points(the_team):
     a = time.time()
     team_obj = tf.get_team_param(the_team,'statsheet')
     if team_obj == None:
@@ -203,8 +206,8 @@ def points(the_year, the_team):
         z = time.time()
         #pbp_data = models.pbp_stat.query.with_entities(models.pbp_stat.worth,models.pbp_stat.time,models.pbp_stat.time,models.pbp_stat.possession_time,models.pbp_stat.possession_time_adj).join(models.game)
         #pbp_data.filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID)).all()
-        q = tf.query_by_year('pbp_stat',current_year,'game')
-        q = q.filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID))
+        '''q = tf.query_by_year('pbp_stat',current_year,'game')
+        q = q.filter(or_(models.game.away_team == team_obj.ncaaID, models.game.home_team == team_obj.ncaaID))'''
 
     if len(pbp_data) == 0:
         return render_template('team_points.html',no_data = True,team = the_team)
@@ -238,6 +241,7 @@ def points(the_year, the_team):
     #return str(t)
     return render_template(
         'team_points.html',
+        title=team_obj.espn_name+' Points',
         column_charts = column_charts,
         line_charts = line_charts,
         pie_diff_charts = pie_diff_charts,

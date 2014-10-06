@@ -15,22 +15,11 @@ mod = Blueprint('game', __name__, url_prefix='/game')
 
 @mod.route('/<the_month>/<the_day>/<the_year>/<game_string>/box_stats')
 def box_stats(the_month, the_day, the_year, game_string):
-    #get all the game data and handle errors
-    home_team_ss, away_team_ss, date = gf.init_game_data(the_month,the_day,the_year,game_string)
-
+    #get all the game data
+    home_team_obj, away_team_obj, date = init_game_data(the_month,the_day,the_year,game_string)
     if date == None:
         #the url is bad
-        return redirect(url_for('main.index'))
-
-    #get the db year for the game
-    game_year = df.get_year_from_date(date)
-
-    away_team_obj = models.team.query.join(models.year).filter(and_(models.year.year==game_year,models.team.statsheet==away_team_ss)).first()
-    home_team_obj = models.team.query.join(models.year).filter(and_(models.year.year==game_year,models.team.statsheet==home_team_ss)).first()
-    if away_team_obj == None or home_team_obj == None:
-        #one or more teams found
         return render_template('game_scoring.html',no_game = True)
-
 
     box_data = models.box_stat.query.join(models.game).filter(and_(models.game.date == date,models.game.away_team == away_team_obj.ncaaID, models.game.home_team == home_team_obj.ncaaID)).all()
     home_roster = models.player.query.join(models.team).filter(models.team.statsheet==home_team_obj.statsheet).all()
@@ -46,8 +35,6 @@ def box_stats(the_month, the_day, the_year, game_string):
     away_team_box = models.box_stat()
     away_data = []
     home_data = []
-    names = [bst.name for bst in box_data]
-
     for bst in box_data:
         #remove the nones from each stat
         for key,val in bst.__dict__.items():
@@ -56,16 +43,9 @@ def box_stats(the_month, the_day, the_year, game_string):
         if bst.name == home_team_obj.espn_name:
             #this stat is for the home team's totals
             home_team_box = bst
-            '''try:
-                #todo: fix
-                setattr(home_team_box,'name',tf.get_team_param(home_team_box.name,'statsheet').espn_name)
-            except: pass'''
         elif bst.name == away_team_obj.espn_name:
             #this stat is for the away team's totals
             away_team_box = bst
-            '''try:
-                setattr(away_team_box,'name',tf.get_team_param(away_team_box.name,'statsheet').espn_name)
-            except: pass'''
         elif bst.name != None and bst.name != 0:
             if bst.name in home_roster:
                 home_data.append(bst)
@@ -76,12 +56,9 @@ def box_stats(the_month, the_day, the_year, game_string):
             elif len(away_roster) > 0 and len(home_roster) == 0:
                 home_data.append(bst)
 
-
-
     #convert the data to list of lists
     key_list = ['name','min','fgm','tpm','ftm','pts','reb','oreb','dreb','ast','stl','blk','pf']
     hdrs = ['Player','MIN','FGM','3PM','FTM','PTS','REB','OREB','DREB','AST','STL','BLK','PF']
-
     return render_template('box_stats.html',
         title = 'Home',
         hdrs = hdrs,
@@ -99,30 +76,38 @@ def box_stats(the_month, the_day, the_year, game_string):
         current_year = current_year,
         game_string = game_string)
 
+def init_game_data(month,day,year,game_string):
+    #the game string should be two teams separated by '@'
+    if game_string.count('@') == 1:
+        teams = game_string.split('@')
+        home_team_slug = teams[1]
+        away_team_slug=  teams[0]
+        away_team_obj = models.team.query.filter(models.team.statsheet==away_team_slug).first()
+        home_team_obj = models.team.query.filter(models.team.statsheet==home_team_slug).first()
+    else:
+        home_team_obj = None
+        away_team_obj =  None
+
+    #handle date being in wrong format
+    try:
+        date = datetime.strptime('-'.join([year,month,day]),'%Y-%m-%d')
+    except ValueError:
+        date = None
+
+    if home_team_obj == None or away_team_obj == None or date == None:
+        return None, None, None
+    else:
+        return home_team_obj, away_team_obj, date
+
 @mod.route('/<the_month>/<the_day>/<the_year>/<game_string>/scoring')
 def game_scoring(the_month, the_day, the_year, game_string):
-
     #get all the game data
-    home_team_ss, away_team_ss, date = gf.init_game_data(the_month,the_day,the_year,game_string)
-
+    home_team_obj, away_team_obj, date = init_game_data(the_month,the_day,the_year,game_string)
     if date == None:
         #the url is bad
-        return redirect(url_for('main.index'))
-
-    #get the db year for the game
-    game_year = df.get_year_from_date(date)
-
-    q = tf.query_by_year('team',game_year)
-    away_team_obj = q.filter(models.team.statsheet==away_team_ss).first()
-    q = tf.query_by_year('team',game_year)
-    home_team_obj = q.filter(models.team.statsheet==home_team_ss).first()
-    if away_team_obj == None or home_team_obj == None:
-        #one or more teams found
         return render_template('game_scoring.html',no_game = True)
 
-    home_team = str(home_team_obj.espn_name)
-    away_team = str(away_team_obj.espn_name)
-    tms = [away_team,home_team]
+    tms = [str(away_team_obj.espn_name),str(home_team_obj.espn_name)]
 
     #get the box and play by play data
     pbp_data = models.pbp_stat.query.join(models.game).filter(and_(models.game.date == date, models.game.home_team == home_team_obj.ncaaID)).all()
