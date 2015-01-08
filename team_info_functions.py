@@ -9,7 +9,31 @@ from bs4 import BeautifulSoup
 
 def myround(x, base=5):
     return int(base * round(float(x)/base))
-
+def team_page_link(year,ncaaID):
+    link = 'http://stats.ncaa.org/team/index/'+str(df.ncaa_yr_index(year))+'?org_id='+ncaaID
+    return link
+def process_filter(form, q, **kwargs):
+    keys = form.keys()
+    for key in keys:
+        try:
+            filter_value = str(form[key])
+        except:
+            assert False
+        if key == 'location':
+            if filter_value == 'Home':
+                q = q.filter(models.game.home_team == kwargs['team_obj'].ncaaID)
+            elif filter_value == 'Away':
+                q = q.filter(models.game.away_team == kwargs['team_obj'].ncaaID)
+            else:
+                q = q
+        elif key == 'outcome':
+            if filter_value == 'Wins':
+                q = q.filter(or_(and_(models.game.home_team == kwargs['team_obj'].ncaaID, models.game.home_outcome == 'W'),and_(models.game.away_team == kwargs['team_obj'].ncaaID, models.game.home_outcome == 'L')))
+            elif filter_value == 'Losses':
+                q = q.filter(or_(and_(models.game.home_team == kwargs['team_obj'].ncaaID, models.game.home_outcome == 'L'),and_(models.game.away_team == kwargs['team_obj'].ncaaID, models.game.home_outcome == 'W')))
+            else:
+                q = q
+    return q
 def is_neutral(date, team1, team2):
     neutral = None
     for teamID in [team1,team2]:
@@ -31,18 +55,16 @@ def is_neutral(date, team1, team2):
             continue
 
     return neutral
-def get_ncaa_schedule_data(teamID):
+def get_ncaa_schedule_data(teamID,year):
     '''
-    @Function: get_ncaa_schedule_data(teamID)
-    @Author: S. Hendrickson 3/5/14
-    @Return: This function returns various lists holding information
+    This function returns various lists holding information
     about the team's games.
     '''
 
-    link = 'http://stats.ncaa.org/team/index/11540?org_id='+teamID
+    link = team_page_link(year,teamID)
     soup = lf.get_soup(link)
     if soup == None:
-        return None
+        return None,None,None, None, None, None
 
     try:
         #get the table that contains 'Schedule' in its first row
@@ -53,8 +75,8 @@ def get_ncaa_schedule_data(teamID):
         #get all the game rows that have been played
         rows = table.findAll('tr')
 
-        #get all rows with more than zero cells and with a 'W' or an 'L' in the last cell
-        rows = [row for row in rows if len(row.findAll('td', {'class' : 'smtext'})) > 0 and ('W' in row.findAll('td')[-1].get_text() or 'L' in row.findAll('td')[-1].get_text())]
+        #get all rows with more than zero cells
+        rows = [row for row in rows if len(row.findAll('td', {'class' : 'smtext'})) > 0]
     except:
         #assign rows empty list, will return empty lists for data
         rows = []
@@ -62,15 +84,15 @@ def get_ncaa_schedule_data(teamID):
     dates = []
     opponents = []
     locations = []
+    outcomes = []
+    box_links = []
+    pbp_links = []
     fmt =  '%m/%d/%Y'
     for row in rows:
         try:
             #get the date
             tds = row.findAll('td')
             date = datetime.strptime(tds[0].get_text(),fmt)
-            dates.append(date.date())
-
-            db_year = df.get_year_from_date(date)
 
             #get the location
             string = str(tds[1].get_text())
@@ -84,39 +106,79 @@ def get_ncaa_schedule_data(teamID):
             else:
                 location = 'Home'
 
-            #get the opponent
             try:
-                opponent = tds[1].find('a')['href']
-                opponent = opponent[opponent.find('=')+1:len(opponent)]
-
-                #check to see if this team exists in the database
-                opp_q = models.team.filter(models.team.ncaaID==opponent).first()
-                if opp_q is None:
-                    #opponent not in database, so use a string instead
-                    assert False
+                outcome_link = tds[2].find('a')['href']
+                box_link, pbp_link = url_to_game_links(outcome_link)
+                result = tds[2].get_text().strip()
+                outcome = None
+                if 'W' in result:
+                    outcome = 'W'
+                elif 'L' in result:
+                    outcome = 'L'
             except:
-                if location == 'Neutral':
-                    #if it's a neutral site game then strip off the name of the venue
-                    s = tds[1].get_text()
-                    opponent = s[0:s.find('@')].strip()
-                else:
-                    opponent = tds[1].get_text().replace('@','').strip()
+                outcome = None
+                box_link = None
+                pbp_link = None
+
+            opponentID, opponent = get_opponent_from_schedule(tds[1],location)
+            if not(opponentID == None):
+                opp_q = models.team.query.filter(models.team.ncaaID==opponentID).first()
+            else:
+                opp_q = models.team.query.filter(models.team.ncaa==opponent).first()
+                if opp_q != None:
+                    #get the id
+                    opponentID = opp_q.ncaaID
+
+            if opp_q is None:
+                #use the string
+                opponent = opponent
+            else:
+                #it's in the database
+                opponent = opponentID
+
+            if opponent == 'TBA' or opponent == 'To Be Announced':
+                continue
 
             #append data to the lists
+            dates.append(date.date())
             locations.append(location)
             opponents.append(opponent)
+            outcomes.append(outcome)
+            box_links.append(box_link)
+            pbp_links.append(pbp_link)
         except Exception:
             traceback.print_exc()
             #there may be some cases where it grabs a bad row, skip it
             continue
 
     if len(locations) == len(opponents) and len(locations) == len(dates):
-        return locations, opponents, dates
+        return locations, opponents, dates, outcomes, box_links, pbp_links
     else:
         #something went wrong
         print len(locations), len(opponents), len(dates)
         print 'lists uneven in length for team %s' % teamID
-        return None, None, None
+        return None, None, None, None, None, None
+def get_opponent_from_schedule(td,location):
+    oppID = None
+    opp = None
+    is_string = True
+    try:
+        #get opponent from link if possible
+        oppID = td.find('a')['href']
+        oppID = opponent[opponent.find('=')+1:len(opponent)]
+        is_string = False
+    except:
+        oppID = None
+    try:
+        if location == 'Neutral':
+            #if it's a neutral site game then strip off the name of the venue
+            s = td.get_text()
+            opp = s[0:s.find('@')].strip()
+        else:
+            opp = td.get_text().replace('@','').strip()
+    except:
+        opp = None
+    return oppID, opp
 def query_by_year(table_name,year,join=None):
     if type(year) != type(1):
         return None
@@ -165,9 +227,16 @@ def get_scoreboard_games(date_string):
     @Author: S. Hendrickson 3/5/14
     @Return: This function gets the game links from stats.ncaa scoreboard html
     '''
+    fmt =  '%m/%d/%Y'
+    try:
+        date = datetime.strptime(date_string,fmt).date()
+        this_year = date.year
+    except:
+        msg = "bad date"
+        return None, None, None, msg
 
     #construct url with the date
-    scoreboard_url = 'http://stats.ncaa.org/team/schedule_list?academic_year=2014&division=1.0&sport_code=MBB&schedule_date='+date_string
+    scoreboard_url = 'http://stats.ncaa.org/team/schedule_list?academic_year='+str(this_year+1)+'&division=1.0&sport_code=MBB&schedule_date='+date_string
 
     soup = lf.get_soup(scoreboard_url)
 
@@ -202,7 +271,7 @@ def get_scoreboard_games(date_string):
             rows = game.findAll('tr')
             tds = [row.findAll('td')[0] for row in rows]
             if len(tds) != 3:
-                continue
+                pass
 
             #find all the links in the game table
             game_links = game.findAll('a')
@@ -233,10 +302,7 @@ def get_scoreboard_games(date_string):
                     team_string =  td.get_text().strip()
                     teams.append(team_string)
                 elif 'game/index' in url:
-                    #handle a game link
-                    index = url[url.index('/index')+len('index/')+1:url.index('?')]
-                    pbp_link = 'http://stats.ncaa.org/game/play_by_play/'+index
-                    box_link = 'http://stats.ncaa.org/game/box_score/'+index
+                    box_link, pbp_link = url_to_game_links(url)
 
                 idx += 1
         except Exception, e:
@@ -249,6 +315,23 @@ def get_scoreboard_games(date_string):
             team_list.append(teams)
             link_list.append(pbp_link)
             box_link_list.append(box_link)
+        elif len(teams) == 2:
+            #try to go to the team's page and see if the game between these two teams has a link there
+            #try:
+
+            box_link, pbp_link = find_game_from_schedule(teams[0],teams[1],date)
+            if box_link != None and pbp_link != None:
+                team_list.append(teams)
+                link_list.append(pbp_link)
+                box_link_list.append(box_link)
+            else:
+                box_link, pbp_link = find_game_from_schedule(teams[1],teams[0],date)
+                if box_link != None and pbp_link != None:
+                    team_list.append(teams)
+                    link_list.append(pbp_link)
+                    box_link_list.append(box_link)
+            #except:
+                #pass
 
     if len(team_list) != len(link_list) or len(team_list) != len(box_link_list):
         #return none if the lists aren't equal for some reason
@@ -256,29 +339,79 @@ def get_scoreboard_games(date_string):
         return None, None, None, msg
 
     return team_list, box_link_list, link_list, None
-def home_and_away_teams(soup, team1_ncaa, team1_ncaaID, team2_ncaa, team2_ncaaID):
+def url_to_game_links(url):
+    try:
+        if 'game/index' in url:
+            index = url[url.index('/index')+len('index/')+1:url.index('?')]
+            pbp_link = 'http://stats.ncaa.org/game/play_by_play/'+index
+            box_link = 'http://stats.ncaa.org/game/box_score/'+index
+    except:
+        return None, None
+    return box_link, pbp_link
+def find_game_from_schedule(link_team,other_team,date):
+    if not df.is_int(link_team):
+        #the team doesn't have a team ID, so can't do anything
+        return None, None
+    locations, opponents, dates, outcomes, box_links, pbp_links = get_ncaa_schedule_data(link_team, date.year)
+    if locations == None:
+        #couldn't get schedule data
+        return None, None
+    box_link = None
+    pbp_link = None
+    for j in range(len(box_links)):
+        #print dates[j], opponents[j], other_team, date
+        if dates[j] == date and opponents[j] == other_team:
+            box_link = box_links[j]
+            pbp_link = pbp_links[j]
+
+    return box_link, pbp_link
+
+def home_and_away_teams(pbp_soup, box_soup, team1_ncaa, team1_ncaaID, team2_ncaa, team2_ncaaID):
     '''
     This function returns a home and away team from the
     playbyplay stats page
     '''
-    #look at the heading row of the play by play table
-    hdr_rows = soup.findAll('tr',{'class' : 'grey_heading'})
-    hdr_rows = [row for row in hdr_rows if row.findAll('td')[0].get_text().strip() == 'Time']
-    tds = hdr_rows[0].findAll('td')
-
-    #the away team is the left column
-    left_col = tds[1].get_text().strip()
-    right_col = tds[3].get_text().strip()
-    if left_col == team1_ncaa and right_col == team2_ncaa:
-        home_team = team2_ncaaID
-        away_team = team1_ncaaID
-    elif left_col == team2_ncaa and right_col == team1_ncaa:
-        home_team = team1_ncaaID
-        away_team = team2_ncaaID
-    else:
+    try:
+        table = box_soup.findAll('table')[0]
+        trs = table.findAll('tr')
+        top_team = trs[1].findAll('td')[0].get_text().strip()
+        bottom_team = trs[2].findAll('td')[0].get_text().strip()
+        print top_team, bottom_team
+        if top_team == team1_ncaa and bottom_team == team2_ncaa:
+            home_team = team2_ncaaID
+            away_team = team1_ncaaID
+        elif top_team == team2_ncaa and bottom_team == team1_ncaa:
+            home_team = team1_ncaaID
+            away_team = team2_ncaaID
+        else:
+            home_team = None
+            away_team = None
+    except:
         home_team = None
         away_team = None
 
+    if home_team == None and away_team == None:
+        try:
+            #look at the heading row of the play by play table
+            hdr_rows = pbp_soup.findAll('tr',{'class' : 'grey_heading'})
+            hdr_rows = [row for row in hdr_rows if row.findAll('td')[0].get_text().strip() == 'Time']
+            tds = hdr_rows[0].findAll('td')
+
+            #the away team is the left column
+            left_col = tds[1].get_text().strip()
+            right_col = tds[3].get_text().strip()
+            if left_col == team1_ncaa and right_col == team2_ncaa:
+                home_team = team2_ncaaID
+                away_team = team1_ncaaID
+            elif left_col == team2_ncaa and right_col == team1_ncaa:
+                home_team = team1_ncaaID
+                away_team = team2_ncaaID
+            else:
+                home_team = None
+                away_team = None
+        except:
+            home_team = None
+            away_team = None
     return home_team, away_team
 def get_home_outcome(pbp_rows):
     j = 1
@@ -339,9 +472,7 @@ def get_pbp_rows(soup):
     return rows
 def get_box_rows(soup):
     '''
-    @Function: get_box_rows(soup)
-    @Author: S. Hendrickson 5/20/14
-    @Return: This function returns a list of beautifulsoup row objects that contain
+    This function returns a list of beautifulsoup row objects that contain
     the box data.
     '''
     try:
@@ -350,8 +481,14 @@ def get_box_rows(soup):
         trows = [str(row) for row in trows if row.findAll('td')[0].get_text().strip() == 'Totals']
         rows = [str(row) for row in rows]
         rows = rows+trows
+        bs_rows = [BeautifulSoup(row, "html.parser") for row in rows]
+        td_lens = [len(row.findAll('td')) for row in bs_rows]
+        if len(set(td_lens)) > 1:
+            print 'rows not all the same length'
+            assert False
     except:
         rows = None
+
     return rows
 def convert_name_ncaa(name):
     '''

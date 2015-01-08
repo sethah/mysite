@@ -23,7 +23,6 @@ def get_play_by_play(home_team, away_team, date, rows, starters):
 
     #make a list to hold all the stat instancess
     st_list = []
-    g = 0
 
     #PBP data not available if there are <100 rows
     if len(rows) > 100:
@@ -39,8 +38,7 @@ def get_play_by_play(home_team, away_team, date, rows, starters):
 
     else:
         #no play by play data available via statsheet OR espn
-        pass
-    g += 1
+        return None
 
     for stat in pbp_data:
         pos_sum = 0
@@ -1038,41 +1036,44 @@ def check_game_stats(pbp_game):
             res[name][hdr] = 0
 
     for st in pbp_game.pbp_stats.all():
-        if st.player == 'NA':
+        try:
+            if st.player == 'NA':
+                continue
+
+            if st.stat_type == 'POINT':
+                res[st.player]['pts'] += st.worth
+
+                if st.value > 1:
+                    #field goal
+                    res[st.player]['fga'] += 1
+                    res[st.player]['fgm'] += st.result
+
+                    if st.value == 3:
+                        #3 pointer
+                        res[st.player]['tpa'] += 1
+                        res[st.player]['tpm'] += st.result
+                else:
+                    #free throw
+                    res[st.player]['fta'] += 1
+                    res[st.player]['ftm'] += st.result
+            elif st.stat_type == 'ASSIST':
+                res[st.player]['ast'] += 1
+            elif st.stat_type == 'TURNOVER':
+                res[st.player]['to'] += 1
+            elif st.stat_type == 'REBOUND':
+                res[st.player]['reb'] += 1
+                if int(st.rebound_type) == 1:
+                    res[st.player]['dreb'] += 1
+                elif int(st.rebound_type) == 0:
+                    res[st.player]['oreb'] += 1
+            elif st.stat_type == 'BLOCK':
+                res[st.player]['blk'] += 1
+            elif st.stat_type == 'STEAL':
+                res[st.player]['stl'] += 1
+            elif st.stat_type == 'FOUL':
+                res[st.player]['pf'] += 1
+        except:
             continue
-
-        if st.stat_type == 'POINT':
-            res[st.player]['pts'] += st.worth
-
-            if st.value > 1:
-                #field goal
-                res[st.player]['fga'] += 1
-                res[st.player]['fgm'] += st.result
-
-                if st.value == 3:
-                    #3 pointer
-                    res[st.player]['tpa'] += 1
-                    res[st.player]['tpm'] += st.result
-            else:
-                #free throw
-                res[st.player]['fta'] += 1
-                res[st.player]['ftm'] += st.result
-        elif st.stat_type == 'ASSIST':
-            res[st.player]['ast'] += 1
-        elif st.stat_type == 'TURNOVER':
-            res[st.player]['to'] += 1
-        elif st.stat_type == 'REBOUND':
-            res[st.player]['reb'] += 1
-            if int(st.rebound_type) == 1:
-                res[st.player]['dreb'] += 1
-            elif int(st.rebound_type) == 0:
-                res[st.player]['oreb'] += 1
-        elif st.stat_type == 'BLOCK':
-            res[st.player]['blk'] += 1
-        elif st.stat_type == 'STEAL':
-            res[st.player]['stl'] += 1
-        elif st.stat_type == 'FOUL':
-            res[st.player]['pf'] += 1
 
     plrs = res.keys()
     names = []

@@ -6,8 +6,23 @@ from sqlalchemy import and_, or_
 def main():
     yr = get_year_from_date(datetime(2014,2,21))
 def get_year():
-    current_year = 2013
+    current_year = 2014
     return current_year
+def ncaa_yr_index(year):
+    yrs = [2014,2013,2012,2011,2010,2009]
+    idxs = [12020, 11540, 11220, 10740, 10440, 10260]
+    try:
+        idx = yrs.index(year)
+        index = idxs[idx]
+    except:
+        return None
+    return index
+def is_int(string):
+    try:
+        int(string)
+        return True
+    except:
+        return False
 def xstr(s):
     if s is None:
         return ''
@@ -28,7 +43,12 @@ def get_year_from_date(date):
     except:
         return None
     return new_year
-def myround(num, divisor, round_type = 'down'):
+def myround(num, divisor, round_type = 'down',game_time = False):
+
+    if game_time:
+        if int(num) in range(100)[40::5]  :
+            num = num-0.0001
+
     if round_type == 'down':
         rounded = num - (num%divisor)
     else:
@@ -118,9 +138,25 @@ def current_team(teamID, team, home_team, away_team):
         else:
             q = query
 
-    return q
-def process_filter(filter_fields, form, q, **kwargs):
+    return q'''
+'''def process_filter(form, q, **kwargs):
     keys = form.keys()
+    for key in keys:
+        if key == 'location':
+            if filter_value == 'Home':
+                q = q.filter(models.game.home_team == filter_value)
+            elif filter_field_value == 'Away':
+                q = q.filter(models.game.away_team == filter_value)
+            else:
+                q = q
+        elif key == 'outcome':
+            if filter_field_value == 'Wins':
+                q = q.filter(or_(and_(models.game.home_team == filter_value, models.game.home_outcome == 'W'),and_(models.game.away_team == filter_value, models.game.home_outcome == 'L')))
+            elif filter_field_value == 'Losses':
+                q = q.filter(or_(and_(models.game.home_team == filter_value, models.game.home_outcome == 'L'),and_(models.game.away_team == filter_value, models.game.home_outcome == 'W')))
+            else:
+                q = q
+
     for field in filter_fields:
         if field not in keys:
             continue

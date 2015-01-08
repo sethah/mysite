@@ -5,13 +5,12 @@ import urllib2
 import cookielib
 import httplib
 from bs4 import BeautifulSoup
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, Index
 
 class team(db.Model):
     __tablename__ = 'team'
     __bind_key__ = 'data_db'
     id = db.Column(db.Integer, primary_key=True)
-    #yearid = db.Column(db.Integer, db.ForeignKey(year.id))
     ncaaID = db.Column(db.String(140))
     statsheet = db.Column(db.String(140))
     ncaa = db.Column(db.String(140))
@@ -60,12 +59,17 @@ class raw_game(db.Model):
             #the game doesn't exist
             g = raw_game()
             g.date = date
+            g.home_team = home_team
+            g.away_team = away_team
             db.session.add(g)
             print 'new raw game created'
         return g
 
     def __getitem__(self, key):
         return getattr(self, key)
+    def __repr__(self):
+        return '<%s %s %s>' % (
+            self.home_team, self.away_team, self.date)
 
 class raw_play(db.Model):
     __tablename__ = 'raw_play'
@@ -155,9 +159,12 @@ class game(db.Model):
     def __getitem__(self, key):
         return getattr(self, key)
     def __repr__(self):
-        return '<%s %s %s %s>' % (
-            self.home_team, self.away_team, self.home_score, self.away_score)
-
+        return '<%s %s %s %s %s>' % (
+            self.home_team, self.away_team, self.home_score, self.away_score, self.date)
+Index('ix_game', game.date,game.home_team,game.away_team)
+Index('ix_home_team',game.home_team)
+Index('ix_away_team',game.away_team)
+Index('ix_date',game.date)
 
 class box_stat(db.Model):
     __tablename__ = 'box_stat'
@@ -196,7 +203,7 @@ class pbp_stat(db.Model):
     gameid = db.Column(db.Integer, db.ForeignKey(game.id))
     time = db.Column(db.Float)
     player = db.Column(db.String(140), default = "NA")
-    stat_type = db.Column(db.String(70))
+    stat_type = db.Column(db.String(70),index=True)
     teamID = db.Column(db.Integer)
     home_score = db.Column(db.Integer)
     away_score = db.Column(db.Integer)

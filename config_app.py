@@ -18,6 +18,7 @@ SQLALCHEMY_DATABASE_URI_DATA = 'mysql://hendris:Hoo16sier@127.0.0.1/hendris$data
 SQLALCHEMY_DATABASE_URI_RAW = 'mysql://hendris:Hoo16sier@mysql.server/hendris$raw_data?charset=utf8'
 #SQLALCHEMY_DATABASE_URI_DATA = 'sqlite:///' + os.path.join(basedir, 'foo5.db')
 SQLALCHEMY_DATABASE_URI_TEAMS = 'sqlite:///' + os.path.join(basedir, 'raw_teams_'+str(current_year)+'.db')
+SQLALCHEMY_POOL_RECYCLE = 499
 SQLALCHEMY_BINDS = {
     'data_db' : SQLALCHEMY_DATABASE_URI_DATA,
     'raw_data_db' : SQLALCHEMY_DATABASE_URI_DATA,

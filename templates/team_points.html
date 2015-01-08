@@ -5,24 +5,21 @@
 <body>
 
         <form action="{{ url_for('teams.points', the_team = team, the_year=year) }}" method="POST" class="form-inline">
-
         <div class="form-group">
-        <select name="location" width="300px">
-        <option value="" selected disabled>Filter by location</option>
-        {% for loc in locations %}
-          <option value="{{ loc }}">{{ loc }}</option>
+        {% for key, value in filters.iteritems() %}
+            <select name="{{ key }}" width="300px">
+            <option value="" selected disabled>Filter by {{ key }}</option>
+            {% for key2, value in value.items() %}
+                {% if value['selected'] == True %}
+                    <option value="{{ key2 }}"  selected>{{ key2 }}</option>
+                {% else %}
+                    <option value="{{ key2 }}">{{ key2 }}</option>
+                {% endif %}
+            {% endfor %}
+            </select>
         {% endfor %}
-        </select>
-
-        <select name="outcome" width="300px">
-        <option value="" selected disabled>Filter by outcome</option>
-        {% for outcome in outcomes %}
-          <option value="{{ outcome }}">{{ outcome }}</option>
-        {% endfor %}
-        </select>
-         <input type="submit" value="Submit">
+        <input type="submit" value="Submit">
         </div>
-
 
       </form>
 

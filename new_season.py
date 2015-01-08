@@ -14,54 +14,34 @@ if project_home not in sys.path:
 from mysite import models
 from mysite import db
 from mysite import link_functions as lf
+from mysite import data_functions as df
 from mysite import team_info_functions as tf
 from sqlalchemy import and_, or_
 import datetime
 import traceback
 
 def main():
-    return None
-    #get_ncaa_schedule_data('306')
-    #return None
-    '''q = models.year.query.all()
-    print len(q)
-    return None
-    for year in q:
-        if year.year == None:
-            db.session.delete(year)
-    db.session.commit()'''
-    '''
-    q = models.team.query.all()
-    q = models.game.query.all()
-    cnt = 0
-    for game in q:
-        try:
-            home_team_id = int(game.home_team)
-            home_team = models.team.query.join(models.year).filter(and_(models.year.year==2014,models.team.ncaaID==game.home_team)).first()
-            if home_team is None:
-                #print home_team
-                cnt += 1
-                db.session.delete(game.box_stats)
-                db.session.delete(game.pbp_stats)
-                db.session.delete(game)
-            away_team = models.team.query.join(models.year).filter(and_(models.year.year==2014,models.team.ncaaID==game.away_team)).first()
-            if away_team is None:
-                cnt += 1
-                #print away_team
-                db.session.delete(game.box_stats)
-                db.session.delete(game.pbp_stats)
-                db.session.delete(game)
-        except:
-            #it's a string skip it
-            continue
-    print cnt
-    #db.session.rollback()
+    '''q = models.player.query.all()
+    for p in q:
+        if p.year == None:
+            print p.name
+            db.session.delete(p)
+    db.session.commit()
+    return None'''
+    '''the_year = df.get_year()
+    date_range = df.date_range(the_year)
+    q  = models.game.query.filter(models.game.date.between(date_range[0],date_range[1])).order_by(models.game.date).all()
+    for gm in q:
+        db.session.delete(gm)
     db.session.commit()
     return None'''
 
-    yearly_update_schedules(current_year,360,30)
+    #yearly_update_rosters(df.get_year(),50)
+
+    yearly_update_schedules(df.get_year(),310,60)
 def yearly_update_schedules(year_arg,q_offset,q_limit=10):
-    all_teams = models.team.query.join(models.year).filter(models.year.year==year_arg).limit(q_limit).offset(q_offset).all()
+    all_teams = models.team.query.limit(q_limit).offset(q_offset).all()
+    print len(all_teams)
     for team in all_teams:
         locations, opponents, dates = tf.get_ncaa_schedule_data(team.ncaaID)
         print team.statsheet
@@ -73,10 +53,7 @@ def yearly_update_schedules(year_arg,q_offset,q_limit=10):
 
 def store_schedule(teamID,locations,opponents,dates,year_arg):
     #query for the year object to add the games to
-    the_year =  models.year.query.filter(models.year.year==year_arg).first()
-    if the_year == None:
-        print 'no year found'
-        return None
+    the_year =  df.get_year()
 
     #loop through all games
     for j in range(len(locations)):
@@ -106,7 +83,8 @@ def store_schedule(teamID,locations,opponents,dates,year_arg):
                 new_game.away_team = opponents[j]
                 new_game.neutral_site = True
 
-            the_year.games.append(new_game)
+            #print new_game.date
+            db.session.add(new_game)
         except:
             traceback.print_exc()
             return None
@@ -116,12 +94,12 @@ def store_schedule(teamID,locations,opponents,dates,year_arg):
     db.session.commit()
 
 def yearly_update_rosters(year_arg,max_count=10):
-    all_teams = models.team.query.join(models.year).filter(models.year.year==year_arg).all()
+    all_teams = models.team.query.all()
     count = 0
     for team in all_teams:
         #if team doesn't have any players and count < count
         #get all the players for this team
-        plr_q = models.player.query.join(models.team).join(models.year).filter(and_(models.year.year==year_arg,models.team.ncaaID==team.ncaaID)).all()
+        plr_q = models.player.query.join(models.team).filter(and_(models.team.ncaaID==team.ncaaID,models.player.year==year_arg)).all()
         if len(plr_q) == 0 and count < max_count:
             store_roster(team.ncaaID,year_arg)
             print team.statsheet
@@ -264,7 +242,7 @@ def store_roster(teamID,year_arg):
     @Author: S. Hendrickson 3/5/14
     @Return: This function stores a team's roster in the database
     '''
-    the_team = models.team.query.join(models.year).filter(and_(models.year.year==year_arg,models.team.ncaaID==teamID)).first()
+    the_team = models.team.query.filter(models.team.ncaaID==teamID).first()
 
     if the_team==None:
         print 'team not found: %s' % teamID
@@ -272,7 +250,7 @@ def store_roster(teamID,year_arg):
 
     try:
         #query for all players that belong to this team
-        q = models.player.query.join(models.team).join(models.year).filter(and_(models.team.ncaaID==teamID,models.year.year==year_arg)).all()
+        q = models.player.query.join(models.team).filter(and_(models.team.ncaaID==teamID,models.player.year==year_arg)).all()
 
         #delete the players that exist
         for plr in q:
@@ -280,7 +258,7 @@ def store_roster(teamID,year_arg):
             db.session.delete(plr)
 
         #store the team's roster
-        link = 'http://stats.ncaa.org/team/roster/11540?org_id='+teamID
+        link = 'http://stats.ncaa.org/team/roster/12020?org_id='+teamID
         soup = lf.get_soup(link)
         if soup == None:
             return None
@@ -332,6 +310,7 @@ def store_roster(teamID,year_arg):
                 new_player.position = positions[j]
                 new_player.height = heights[j]
                 new_player.pclass = pclasses[j]
+                new_player.year = year_arg
                 the_team.players.append(new_player)
                 db.session.commit()
             except:
